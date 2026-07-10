@@ -230,7 +230,7 @@ class Simplifier(walkers.dag.DagWalker):
             "up.model.variable.Variable"
         ] = self.environment.free_vars_oracle.get_free_variables(args[0])
         vars = tuple(var for var in expression.variables()
-                     if var in free_vars or isinstance(var, up.model.range_variable.RangeVariable))
+                     if var in free_vars or isinstance(var, up.model.int_variable.IntVariable))
         if len(vars) == 0:
             return args[0]
         return self.manager.Forall(args[0], *vars)
@@ -567,7 +567,7 @@ class Simplifier(walkers.dag.DagWalker):
     @walkers.handles(
         op.OperatorKind.PARAM_EXP,
         op.OperatorKind.VARIABLE_EXP,
-        op.OperatorKind.RANGE_VARIABLE_EXP,
+        op.OperatorKind.INT_VARIABLE_EXP,
         op.OperatorKind.OBJECT_EXP,
         op.OperatorKind.TIMING_EXP,
         op.OperatorKind.PRESENT_EXP,

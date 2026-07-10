@@ -1,7 +1,7 @@
 # XUP: eXpressive Unified Planning
 
 > **Note:** This repository is a fork of the [Unified Planning (UP)](https://github.com/aiplan4eu/unified-planning) framework.
-> XUP extends the UP framework with high-level modeling constructs - arrays, sets, bounded integer parameters in actions, integer range variables, and Boolean counting expressions - along with composable compilers that automatically translate these constructs to standard formats.
+> XUP extends the UP framework with high-level modeling constructs - arrays, sets, bounded integer parameters in actions, integer variables, and Boolean counting expressions - along with composable compilers that automatically translate these constructs to standard formats.
 > For the original Unified Planning framework documentation, please see [README_UP_ORIGINAL.md](README_UP_ORIGINAL.md).
 
 ## Publication
@@ -28,7 +28,7 @@ Our extended Unified Planning framework provides advanced features for modelling
 - **Arrays**: Define multi-dimensional fluents (e.g., grids, matrices).
 - **Sets**: Fluents representing sets of objects with standard operations (e.g., union, intersection).
 - **Integer Parameters in Actions**: Action parameters that take integer values within a specified range.
-- **Range Variables**: Variables that allow iterating over ranges of integers in preconditions/effects.
+- **Int Variables**: Variables that allow iterating over integer ranges in preconditions/effects.
 - **Count**: Counting expressions to evaluate Boolean conditions.
 
 These extensions allow you to write more expressive and concise planning problems compared to standard PDDL, 
@@ -100,15 +100,15 @@ advanced constructs into a representation compatible for a target planner.
 
 ### Available Compilers
 
-| Abbreviation | Name | Feature Removed                                   | Transforms Into                                                            |
-|---|---|---------------------------------------------------|----------------------------------------------------------------------------|
-| `IPAR` | INT_PARAMETER_ACTIONS_REMOVING | Integer parameters in actions and Range Variables | Expanded actions for each parameter value                                  |
-| `AR` | ARRAYS_REMOVING | (Multi)Array fluents of an *element_type*         | An *element_type* fluent + (multi)position objects (p0, p1, p2, ...) as parameters |
-| `ALR` | ARRAYS_LOGARITHMIC_REMOVING | Bounded integer array fluents                     | Boolean fluents representing integer bits (logarithmic encoding)           |
-| `IR` | INTEGERS_REMOVING | Bounded integer fluents                           | Boolean fluents + number objects (n0, n1, n2, ...) as parameters           |
-| `CR` | COUNT_REMOVING | Count expressions                                 | Expanded boolean formulas (e.g., Count >= 2 becomes disjunctions)          |
-| `CIR` | COUNT_INT_REMOVING | Count expressions                                 | Integer fluents + sum expressions (each condition becomes a 0/1 fluent)    |
-| `SR` | SETS_REMOVING | Set fluents                                       | Boolean array fluents (membership represented as boolean)                  |
+| Abbreviation | Name | Feature Removed                                 | Transforms Into                                                            |
+|---|---|-------------------------------------------------|----------------------------------------------------------------------------|
+| `IPAR` | INT_PARAMETER_ACTIONS_REMOVING | Integer parameters in actions and Int Variables | Expanded actions for each parameter value                                  |
+| `AR` | ARRAYS_REMOVING | (Multi)Array fluents of an *element_type*       | An *element_type* fluent + (multi)position objects (p0, p1, p2, ...) as parameters |
+| `ALR` | ARRAYS_LOGARITHMIC_REMOVING | Bounded integer array fluents                   | Boolean fluents representing integer bits (logarithmic encoding)           |
+| `IR` | INTEGERS_REMOVING | Bounded integer fluents                         | Boolean fluents + number objects (n0, n1, n2, ...) as parameters           |
+| `CR` | COUNT_REMOVING | Count expressions                               | Expanded boolean formulas (e.g., Count >= 2 becomes disjunctions)          |
+| `CIR` | COUNT_INT_REMOVING | Count expressions                               | Integer fluents + sum expressions (each condition becomes a 0/1 fluent)    |
+| `SR` | SETS_REMOVING | Set fluents                                     | Boolean array fluents (membership represented as boolean)                  |
 
 ### Compilation Strategies
 As described in the paper, we can chain these compilers to produce different PDDL models 

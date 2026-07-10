@@ -123,10 +123,10 @@ class IdentityDagWalker(walkers.dag.DagWalker):
     ) -> FNode:
         return self.manager.VariableExp(expression.variable())
 
-    def walk_range_variable_exp(
+    def walk_int_variable_exp(
         self, expression: FNode, args: List[FNode], **kwargs
     ) -> FNode:
-        return self.manager.RangeVariableExp(expression.range_variable())
+        return self.manager.IntVariableExp(expression.int_variable())
 
     def walk_object_exp(self, expression: FNode, args: List[FNode], **kwargs) -> FNode:
         return self.manager.ObjectExp(expression.object())

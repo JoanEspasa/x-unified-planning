@@ -88,7 +88,7 @@ class FNode(object):
             OperatorKind.SET_DIFFERENCE: lambda: f"{self.arg(0)} - {self.arg(1)}",
             OperatorKind.PARAM_EXP: lambda: self._content.payload.name,
             OperatorKind.VARIABLE_EXP: lambda: self._content.payload.name,
-            OperatorKind.RANGE_VARIABLE_EXP: lambda: self._content.payload.name,
+            OperatorKind.INT_VARIABLE_EXP: lambda: self._content.payload.name,
             OperatorKind.OBJECT_EXP: lambda: self._content.payload.name,
             OperatorKind.TIMING_EXP: lambda: str(self._content.payload),
             OperatorKind.PRESENT_EXP: lambda: str(self._content.payload),
@@ -251,14 +251,14 @@ class FNode(object):
         assert self.is_exists() or self.is_forall()
         return list(self._content.payload)
 
-    def range_variable(self) -> "unified_planning.model.range_variable.RangeVariable":
-        """Return the variable of the RangeVariableExp."""
-        assert self.is_range_variable_exp()
+    def int_variable(self) -> "unified_planning.model.int_variable.IntVariable":
+        """Return the variable of the IntVariableExp."""
+        assert self.is_int_variable_exp()
         return self._content.payload
 
-    def range_variables(self) -> List["unified_planning.model.range_variable.RangeVariable"]:
-        """Return the `RangeVariables` of the `Exists` or `Forall`."""
-        assert self.is_range_variable_exp()
+    def int_variables(self) -> List["unified_planning.model.int_variable.IntVariable"]:
+        """Return the `IntVariables` of the `Exists` or `Forall`."""
+        assert self.is_int_variable_exp()
         return list(self._content.payload)
 
     def object(self) -> "unified_planning.model.object.Object":
@@ -404,9 +404,9 @@ class FNode(object):
         """Test whether the node is a :class:`~unified_planning.model.Variable` Expression."""
         return self.node_type == OperatorKind.VARIABLE_EXP
 
-    def is_range_variable_exp(self) -> bool:
-        """Test whether the node is a :class:`~unified_planning.model.RngeVariable` Expression."""
-        return self.node_type == OperatorKind.RANGE_VARIABLE_EXP
+    def is_int_variable_exp(self) -> bool:
+        """Test whether the node is a :class:`~unified_planning.model.IntVariable` Expression."""
+        return self.node_type == OperatorKind.INT_VARIABLE_EXP
 
     def is_object_exp(self) -> bool:
         """Test whether the node is an :class:`~unified_planning.model.Object` Expression."""

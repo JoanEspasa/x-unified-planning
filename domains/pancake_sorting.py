@@ -20,7 +20,7 @@ from unified_planning.shortcuts import (
     InstantaneousAction,
     MinimizeActionCosts,
     Problem,
-    RangeVariable,
+    IntVariable,
 )
 
 from domains.base import Domain
@@ -133,7 +133,7 @@ class PancakeSortingDomain(Domain):
 
         flip = InstantaneousAction("flip", f=IntType(1, n - 1))
         f = flip.parameter("f")
-        b = RangeVariable("b", 0, f)
+        b = IntVariable("b", 0, f)
         flip.add_effect(pancake[b], pancake[f - b], forall=[b])
         problem.add_action(flip)
 

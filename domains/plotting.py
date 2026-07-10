@@ -7,7 +7,7 @@ Example:
   python run.py --domain plotting --compilation uti --solving fast-downward
 """
 from typing import Dict, Optional
-from unified_planning.model import Action, Expression, Object, RangeVariable
+from unified_planning.model import Action, Expression, Object, IntVariable
 from unified_planning.shortcuts import (
     ArrayType,
     Equals,
@@ -185,14 +185,14 @@ class PlottingDomain(Domain):
         # next block is never p, N nor W
         shoot_partial_row.add_precondition(And(
             Not(Equals(blocks[r][l + 1], p)), Not(Equals(blocks[r][l + 1], N)), Not(Equals(blocks[r][l + 1], W))))
-        b = RangeVariable('b', 0, l)
+        b = IntVariable('b', 0, l)
         shoot_partial_row.add_precondition(Forall(Or(Equals(blocks[r][b], p), Equals(blocks[r][b], N)), b))
         shoot_partial_row.add_precondition(Exists(Equals(blocks[r][b], p), b))
 
         shoot_partial_row.add_effect(hand, blocks[r][l + 1])
         shoot_partial_row.add_effect(blocks[r][l + 1], p)
         shoot_partial_row.add_effect(blocks[0][b], N, forall=[b])
-        a = RangeVariable('a', 1, r)
+        a = IntVariable('a', 1, r)
         shoot_partial_row.add_effect(blocks[a][b], blocks[a - 1][b], forall=[a, b])
 
 
@@ -206,7 +206,7 @@ class PlottingDomain(Domain):
         shoot_column.add_precondition(Or(Equals(hand, p), Equals(hand, W)))
         shoot_column.add_precondition(Or(Equals(l, lr), And(
             Not(Equals(blocks[l + 1][c], p)), Not(Equals(blocks[l + 1][c], N)), Not(Equals(blocks[l + 1][c], W)))))
-        b = RangeVariable('b', 0, l)
+        b = IntVariable('b', 0, l)
         shoot_column.add_precondition(Forall(Or(Equals(blocks[b][c], p), Equals(blocks[b][c], N)), b))
         shoot_column.add_precondition(Exists(Equals(blocks[b][c], p), b))
 
@@ -225,9 +225,9 @@ class PlottingDomain(Domain):
         shoot_row_and_column.add_precondition(Not(Equals(p, N)))
         shoot_row_and_column.add_precondition(Not(Equals(p, W)))
         shoot_row_and_column.add_precondition(Or(Equals(hand, p), Equals(hand, W)))
-        c = RangeVariable('c', 0, lc)
+        c = IntVariable('c', 0, lc)
         shoot_row_and_column.add_precondition(Forall(Or(Equals(blocks[r][c], p), Equals(blocks[r][c], N)), c))
-        b = RangeVariable('b', r + 1, l)
+        b = IntVariable('b', r + 1, l)
         shoot_row_and_column.add_precondition(Forall(Or(Equals(blocks[b][lc], p), Equals(blocks[b][lc], N)), b))
         shoot_row_and_column.add_precondition(Or(
             Exists(Equals(blocks[r][c], p), c),
@@ -239,13 +239,13 @@ class PlottingDomain(Domain):
         shoot_row_and_column.add_effect(blocks[l + 1][lc], p, LT(l, lr))
         shoot_row_and_column.add_effect(hand, blocks[l + 1][lc], LT(l, lr))
         shoot_row_and_column.add_effect(hand, p, Equals(l, lr))
-        a = RangeVariable('a', 1, r)
-        c = RangeVariable('c', 0, lc - 1)
+        a = IntVariable('a', 1, r)
+        c = IntVariable('c', 0, lc - 1)
         shoot_row_and_column.add_effect(blocks[0][c], N, forall=[c])
         shoot_row_and_column.add_effect(blocks[a][c], blocks[a - 1][c], forall=[a, c])
-        b = RangeVariable('b', 0, r - 1)
+        b = IntVariable('b', 0, r - 1)
         shoot_row_and_column.add_effect(blocks[l - b][lc], blocks[b][lc], forall=[b])
-        x = RangeVariable('x', 0, l - r)
+        x = IntVariable('x', 0, l - r)
         shoot_row_and_column.add_effect(blocks[x][lc], N, forall=[x])
 
 
@@ -255,7 +255,7 @@ class PlottingDomain(Domain):
         shoot_only_full_row.add_precondition(Not(Equals(p, N)))
         shoot_only_full_row.add_precondition(Not(Equals(p, W)))
         shoot_only_full_row.add_precondition(Or(Equals(hand, p), Equals(hand, W)))
-        c = RangeVariable('c', 0, lc)
+        c = IntVariable('c', 0, lc)
         shoot_only_full_row.add_precondition(Forall(Or(Equals(blocks[r][c], p), Equals(blocks[r][c], N)), c))
         shoot_only_full_row.add_precondition(Exists(Equals(blocks[r][c], p), c))
         shoot_only_full_row.add_precondition(Or(Equals(r, lr), And(
@@ -265,8 +265,8 @@ class PlottingDomain(Domain):
         shoot_only_full_row.add_effect(blocks[r + 1][lc], p, LT(r, lr))
         shoot_only_full_row.add_effect(hand, blocks[r + 1][lc], LT(r, lr))
         shoot_only_full_row.add_effect(hand, p, Equals(r, lr))
-        a = RangeVariable('a', 1, r)
-        c = RangeVariable('c', 0, lc)
+        a = IntVariable('a', 1, r)
+        c = IntVariable('c', 0, lc)
         shoot_only_full_row.add_effect(blocks[0][c], N, forall=[c])
         shoot_only_full_row.add_effect(blocks[a][c], blocks[a - 1][c], forall=[a, c])
 

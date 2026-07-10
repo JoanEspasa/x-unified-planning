@@ -5,7 +5,7 @@ Example:
 """
 import math
 from typing import Dict, Optional
-from unified_planning.model import Action, Expression, Object, RangeVariable
+from unified_planning.model import Action, Expression, Object, IntVariable
 from unified_planning.shortcuts import (
     ArrayType,
     Equals,
@@ -219,33 +219,33 @@ class LabyrinthDomain(Domain):
 
         rotate_col_up = InstantaneousAction('rotate_col_up', c=IntType(0, n - 1))
         c = rotate_col_up.parameter('c')
-        all_rows = RangeVariable('all_rows', 0, n - 1)
+        all_rows = IntVariable('all_rows', 0, n - 1)
         rotate_col_up.add_precondition(Forall(Not(Equals(robot_at, card_at[all_rows][c])), all_rows))
-        rotated_rows = RangeVariable('rotated_rows', 1, n - 1)
+        rotated_rows = IntVariable('rotated_rows', 1, n - 1)
         rotate_col_up.add_effect(card_at[rotated_rows - 1][c], card_at[rotated_rows][c], forall=[rotated_rows])
         rotate_col_up.add_effect(card_at[n - 1][c], card_at[0][c])
 
         rotate_col_down = InstantaneousAction('rotate_col_down', c=IntType(0, n - 1))
         c = rotate_col_down.parameter('c')
-        all_rows = RangeVariable('all_rows', 0, n - 1)
+        all_rows = IntVariable('all_rows', 0, n - 1)
         rotate_col_down.add_precondition(Forall(Not(Equals(robot_at, card_at[all_rows][c])), all_rows))
-        rotated_rows = RangeVariable('rotated_rows', 1, n - 1)
+        rotated_rows = IntVariable('rotated_rows', 1, n - 1)
         rotate_col_down.add_effect(card_at[rotated_rows][c], card_at[rotated_rows - 1][c], forall=[rotated_rows])
         rotate_col_down.add_effect(card_at[0][c], card_at[n - 1][c])
 
         rotate_row_left = InstantaneousAction('rotate_row_left', r=IntType(0, n - 1))
         r = rotate_row_left.parameter('r')
-        all_cols = RangeVariable('all_cols', 0, n - 1)
+        all_cols = IntVariable('all_cols', 0, n - 1)
         rotate_row_left.add_precondition(Forall(Not(Equals(robot_at, card_at[r][all_cols])), all_cols))
-        rotated_cols = RangeVariable('rotated_cols', 0, n - 2)
+        rotated_cols = IntVariable('rotated_cols', 0, n - 2)
         rotate_row_left.add_effect(card_at[r][rotated_cols], card_at[r][rotated_cols + 1], forall=[rotated_cols])
         rotate_row_left.add_effect(card_at[r][n - 1], card_at[r][0])
 
         rotate_row_right = InstantaneousAction('rotate_row_right', r=IntType(0, n - 1))
         r = rotate_row_right.parameter('r')
-        all_cols = RangeVariable('all_cols', 0, n - 1)
+        all_cols = IntVariable('all_cols', 0, n - 1)
         rotate_row_right.add_precondition(Forall(Not(Equals(robot_at, card_at[r][all_cols])), all_cols))
-        rotated_cols = RangeVariable('rotated_cols', 1, n - 1)
+        rotated_cols = IntVariable('rotated_cols', 1, n - 1)
         rotate_row_right.add_effect(card_at[r][rotated_cols], card_at[r][rotated_cols - 1], forall=[rotated_cols])
         rotate_row_right.add_effect(card_at[r][0], card_at[r][n - 1])
 

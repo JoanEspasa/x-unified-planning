@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 """
-This module defines the RangeVariable class.
-A RangeVariable has a name and a type.
+This module defines the IntVariable class.
+A IntVariable has a name and a type.
 """
 
 
@@ -29,8 +29,8 @@ import unified_planning.model.walkers as walkers
 import unified_planning.model.operators as op
 
 
-class RangeVariable:
-    """Represents a variable; a `RangeVariable` has a name and a type."""
+class IntVariable:
+    """Represents an integer variable; a `IntVariable` has a name and a type."""
 
     def __init__(
         self,
@@ -57,7 +57,7 @@ class RangeVariable:
         return f"integer[{str(self.initial)}, {str(self.last)}] {self.name}"
 
     def __eq__(self, oth: object) -> bool:
-        if isinstance(oth, RangeVariable):
+        if isinstance(oth, IntVariable):
             return (
                 self._name == oth._name
                 and self._initial == self._initial
@@ -73,12 +73,12 @@ class RangeVariable:
 
     @property
     def name(self) -> str:
-        """Returns the `Variable` name."""
+        """Returns the `IntVariable` name."""
         return self._name
 
     @property
     def initial(self) -> Union[str, int]:
-        """Returns the `Variable` `Initial`."""
+        """Returns the `IntVariable` `Initial`."""
         if type(self._initial) is Parameter:
             return self._initial.name
         else:
@@ -86,7 +86,7 @@ class RangeVariable:
 
     @property
     def last(self) -> Union[str, int]:
-        """Returns the `Variable` `Last`."""
+        """Returns the `IntVariable` `Last`."""
         if type(self._last) is Parameter:
             return self._last.name
         else:
@@ -94,12 +94,12 @@ class RangeVariable:
 
     @property
     def type(self) -> "unified_planning.model.types.Type":
-        """Returns the `Variable` `Type`."""
+        """Returns the `IntVariable` `Type`."""
         return self._type_int
 
     @property
     def environment(self) -> "Environment":
-        """Return the `RangeVariable` `Environment`."""
+        """Return the `IntVariable` `Environment`."""
         return self._env
 
     #

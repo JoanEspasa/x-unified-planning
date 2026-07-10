@@ -149,7 +149,7 @@ def Iff(left: BoolExpression, right: BoolExpression) -> FNode:
 
 
 def Exists(
-    expression: BoolExpression, *vars: Union["unified_planning.model.Variable", "unified_planning.model.range_variable.RangeVariable"]
+    expression: BoolExpression, *vars: Union["unified_planning.model.Variable", "unified_planning.model.int_variable.IntVariable"]
 ) -> FNode:
     """
     Creates an expression of the form:
@@ -167,7 +167,7 @@ def Exists(
 
 
 def Forall(
-    expression: BoolExpression, *vars: Union["unified_planning.model.Variable", "unified_planning.model.RangeVariable"]
+    expression: BoolExpression, *vars: Union["unified_planning.model.Variable", "unified_planning.model.IntVariable"]
 ) -> FNode:
     """Creates an expression of the form:
         ``Forall (var[0]... var[n]) | expression``
@@ -299,14 +299,14 @@ def VariableExp(var: "unified_planning.model.Variable") -> FNode:
     """
     return get_environment().expression_manager.VariableExp(var)
 
-def RangeVariableExp(var: "unified_planning.model.RangeVariable") -> FNode:
+def IntVariableExp(var: "unified_planning.model.IntVariable") -> FNode:
     """
-    Returns an expression for the given ``RangeVariable``.
+    Returns an expression for the given ``IntVariable``.
 
-    :param var: The ``RangeVariable`` that must be promoted to ``FNode``.
-    :return: The ``FNode`` containing the given ``range_variable`` as his payload.
+    :param var: The ``IntVariable`` that must be promoted to ``FNode``.
+    :return: The ``FNode`` containing the given ``int_variable`` as his payload.
     """
-    return get_environment().expression_manager.RangeVariableExp(var)
+    return get_environment().expression_manager.IntVariableExp(var)
 
 
 def ObjectExp(obj: "unified_planning.model.Object") -> FNode:

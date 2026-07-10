@@ -2,14 +2,14 @@
 Example demonstrating high-level constructs for planning:
 - Arrays: multi-dimensional state representation
 - Integer parameters: dynamic action instantiation
-- Range variables: dynamic quantification dependent on parameters
+- Int variables: dynamic quantification dependent on parameters
 - Set fluents: dynamic color tracking
 - Count expressions: cardinality constraints on goals
 
 This problem models painting a 3x3 grid where:
 - Each cell starts blue by default
 - Action paints rows 0..up_to with the same color
-- Range variables iterate over a determined range
+- Int variables iterate over a determined range
 - Set tracks which colors have been used
 - Goal: use at least 2 different colors
 """
@@ -37,15 +37,15 @@ problem.add_fluent(colors_used, default_initial_value=set())
 
 # ===== ACTION: Paint Multiple Rows =====
 # Paint rows from 0 to 'up_to' (inclusive) with the same color
-# This demonstrates range variables dependent on integer parameters
+# This demonstrates int variables dependent on integer parameters
 paint_rows = InstantaneousAction("paint_rows", r_up_to=IntType(0, 2), color=Color)
 r_up_to = paint_rows.parameter("r_up_to")
 color = paint_rows.parameter("color")
 
-# Range variable: rows from 0 to up_to (parameter-dependent)
-r = RangeVariable("r", 0, r_up_to)
-# Range variable: columns in each row
-c = RangeVariable("c", 0, 2)
+# Int variable: rows from 0 to up_to (parameter-dependent)
+r = IntVariable("r", 0, r_up_to)
+# Int variable: columns in each row
+c = IntVariable("c", 0, 2)
 
 # Precondition: at least one cell in the range differs from target color
 paint_rows.add_precondition(Exists(Not(Equals(grid[r][c], color)), c, r))

@@ -71,7 +71,7 @@ FEATURES = {
         "UNIVERSAL_CONDITIONS",
         "INTERPRETED_FUNCTIONS_IN_CONDITIONS",
         "COUNTING",
-        "RANGE_VARIABLES",
+        "INT_VARIABLES",
         "MEMBERING"
     ],
     "EFFECTS_KIND": [

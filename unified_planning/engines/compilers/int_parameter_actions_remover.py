@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the integer parameter actions remover and range variable remover compiler."""
+"""This module defines the integer parameter actions remover and int variable remover compiler."""
 import re
 from itertools import product
 from unified_planning.exceptions import UPProblemDefinitionError
@@ -22,7 +22,7 @@ from collections import OrderedDict
 from unified_planning.engines.mixins.compiler import CompilationKind, CompilerMixin
 from unified_planning.engines.results import CompilerResult
 from unified_planning.model import Problem, InstantaneousAction, Action, ProblemKind, Fluent, MinimizeActionCosts, \
-    RangeVariable, OperatorKind, Effect, Axiom, Expression
+    IntVariable, OperatorKind, Effect, Axiom, Expression
 from unified_planning.model.problem_kind_versioning import LATEST_PROBLEM_KIND_VERSION
 from unified_planning.engines.compilers.utils import get_fresh_name, lift_action_instance
 from typing import Dict, List, Optional, Tuple, OrderedDict, Union
@@ -36,7 +36,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
 
     Transforms:
     1. Integer action parameters -> grounded instantiated actions for each valid integer value
-    2. Range variables -> expanded quantifiers (forall/exists) over instantiated ranges
+    2. Int variables -> expanded quantifiers (forall/exists) over instantiated ranges
     3. Array fluents -> indexed fluents with explicit array accesses
 
     Example:
@@ -83,7 +83,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_conditions_kind("UNIVERSAL_CONDITIONS")
         supported_kind.set_conditions_kind("COUNTING")
         supported_kind.set_conditions_kind("MEMBERING")
-        supported_kind.set_conditions_kind("RANGE_VARIABLES")
+        supported_kind.set_conditions_kind("INT_VARIABLES")
         supported_kind.set_effects_kind("CONDITIONAL_EFFECTS")
         supported_kind.set_effects_kind("INCREASE_EFFECTS")
         supported_kind.set_effects_kind("DECREASE_EFFECTS")
@@ -137,7 +137,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
     ) -> ProblemKind:
         new_kind = problem_kind.clone()
         new_kind.unset_parameters("BOUNDED_INT_ACTION_PARAMETERS")
-        new_kind.unset_conditions_kind("RANGE_VARIABLES")
+        new_kind.unset_conditions_kind("INT_VARIABLES")
         return new_kind
 
     # ======================== UTILITY METHODS ========================
@@ -287,28 +287,28 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
 
         return True
 
-    # ==================== RANGE VARIABLE TRANSFORMATION ====================
+    # ==================== INT VARIABLE TRANSFORMATION ====================
 
     def _extract_variables(self, variables: List) -> Tuple[Tuple, Dict[str, Tuple[int, int]]]:
-        """Separate regular variables from range variables."""
+        """Separate regular variables from int variables."""
         regular_vars = []
-        range_vars = {}
+        int_vars = {}
         for var in variables:
-            if isinstance(var, RangeVariable):
-                range_vars[var.name] = (var.initial, var.last)
+            if isinstance(var, IntVariable):
+                int_vars[var.name] = (var.initial, var.last)
             else:
                 regular_vars.append(var)
-        return tuple(regular_vars), range_vars
+        return tuple(regular_vars), int_vars
 
-    def _update_range_vars(
-            self, range_vars: Dict[str, Tuple[int, int]], int_params: Dict[str, int], instantiations: Tuple[int, ...]
+    def _update_int_vars(
+            self, int_vars: Dict[str, Tuple[int, int]], int_params: Dict[str, int], instantiations: Tuple[int, ...]
     ) -> Dict[str, Tuple[int, int]]:
         """
         Evaluate range expressions with current parameter values.
         Substitutes integer parameter instantiations into range expressions so that quantified variables have concrete bounds.
         """
         updated = {}
-        for var_name, (initial, last) in range_vars.items():
+        for var_name, (initial, last) in int_vars.items():
             initial_str = str(initial)
             last_str = str(last)
             for param_name, param_idx in int_params.items():
@@ -320,7 +320,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         return updated
 
     def _get_range_instantiations(self, ranges: Dict[str, Tuple[int, int]]) -> List[Tuple[int, ...]]:
-        """Generate all combinations of values for range variables."""
+        """Generate all combinations of values for int variables."""
         if not ranges:
             return [()]
         range_iterables = [
@@ -340,14 +340,14 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             instantiations: Tuple[int, ...],
     ) -> FNode:
         """
-        Transform forall/exists by expanding range variables.
-        Replaces range variables with concrete instantiations, then expands the quantifier into a
+        Transform forall/exists by expanding int variables.
+        Replaces int variables with concrete instantiations, then expands the quantifier into a
         conjunction/disjunction over valid value ranges.
         """
-        regular_vars, range_vars = self._extract_variables(node.variables())
+        regular_vars, int_vars = self._extract_variables(node.variables())
 
-        if not range_vars:
-            # No range variables: keep quantifier
+        if not int_vars:
+            # No int variables: keep quantifier
             new_args = [
                 self._transform_expression(old_problem, new_problem, arg, int_params, instantiations)
                 for arg in node.args
@@ -359,14 +359,14 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             return em.create_node(node.node_type, tuple(new_args), regular_vars).simplify()
 
         # Update ranges with current parameter values
-        updated_ranges = self._update_range_vars(range_vars, int_params, instantiations)
+        updated_ranges = self._update_int_vars(int_vars, int_params, instantiations)
 
-        # Expand range variables
+        # Expand int variables
         expanded_int_params = int_params.copy()
-        for var_name in range_vars.keys():
+        for var_name in int_vars.keys():
             expanded_int_params[var_name] = len(expanded_int_params)
 
-        # Get all instantiations for range variables
+        # Get all instantiations for int variables
         range_instantiations = self._get_range_instantiations(updated_ranges)
 
         # Expand quantifier body for each instantiation
@@ -482,7 +482,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         Transform expression by substituting integer parameters and expanding quantifiers, replacing:
         - Integer parameters with their instantiated constant values
         - Array accesses with indexed fluent names
-        - Range variables with concrete bounds
+        - Int variables with concrete bounds
         """
         if int_params is None:
             int_params = {}
@@ -583,8 +583,8 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             instantiation: Tuple[int, ...]
     ) -> bool:
         """
-        Add single effect to action, handling forall with range variables.
-        Expands forall effects over range variables into individual effects for each instantiation.
+        Add single effect to action, handling forall with int variables.
+        Expands forall effects over int variables into individual effects for each instantiation.
         """
         if effect.is_increase():
             effect_type = 'increase'
@@ -593,8 +593,8 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         else:
             effect_type = 'none'
 
-        regular_forall, range_vars = self._extract_variables(effect.forall)
-        if not range_vars:
+        regular_forall, int_vars = self._extract_variables(effect.forall)
+        if not int_vars:
             new_fluent = self._transform_expression(problem, new_problem, effect.fluent, int_param_map, instantiation)
             new_value = self._transform_expression(problem, new_problem, effect.value, int_param_map, instantiation)
             new_condition = self._transform_expression(problem, new_problem, effect.condition, int_param_map, instantiation)
@@ -603,12 +603,12 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
                 new_action, effect_type, new_fluent, new_value, new_condition, effect.condition, regular_forall
             )
 
-        # Evaluate range variables with current instantiation
-        updated_ranges = self._update_range_vars(range_vars, int_param_map, instantiation)
+        # Evaluate int variables with current instantiation
+        updated_ranges = self._update_int_vars(int_vars, int_param_map, instantiation)
 
-        # Expand forall with range variables
+        # Expand forall with int variables
         expanded_int_params = int_param_map.copy()
-        for var_name in range_vars.keys():
+        for var_name in int_vars.keys():
             expanded_int_params[var_name] = len(expanded_int_params)
 
         range_insts = self._get_range_instantiations(updated_ranges)
