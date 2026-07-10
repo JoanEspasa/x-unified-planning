@@ -643,15 +643,18 @@ def RealType(
     """
     return get_environment().type_manager.RealType(lower_bound, upper_bound)
 
+
 def ArrayType(
         size: int, elements_type: Type = None
 ) -> unified_planning.model.types.Type:
     return get_environment().type_manager.ArrayType(size, elements_type)
 
+
 def SetType(
         elements_type: Type = None
 ) -> unified_planning.model.types.Type:
     return get_environment().type_manager.SetType(elements_type)
+
 
 def UserType(
     name: str, father: Optional[Type] = None
