@@ -1,4 +1,5 @@
 # Copyright 2021-2023 AIPlan4EU project
+# Copyright 2024-2026 Unified Planning library and its maintainers
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +15,22 @@
 #
 """This module defines the problem class."""
 
-
 from itertools import chain, product
+import networkx as nx
+from fractions import Fraction
+from typing import Any, Optional, List, Dict, Set, Tuple, Union, cast, Iterable
+
+from unified_planning.model.metrics import (
+    MaximizeExpressionOnFinalState,
+    MinimizeActionCosts,
+)
+from unified_planning.model.metrics import MinimizeExpressionOnFinalState
 import unified_planning as up
+from unified_planning.model.action import DurativeAction, InstantaneousAction
 from unified_planning.model.effect import EffectKind
-import unified_planning.model.tamp
 from unified_planning.model import Fluent
 from unified_planning.model.abstract_problem import AbstractProblem
+from unified_planning.model.metrics import Oversubscription, TemporalOversubscription
 from unified_planning.model.mixins import (
     ActionsSetMixin,
     AxiomsSetMixin,
@@ -44,9 +54,7 @@ from unified_planning.exceptions import (
     UPUnsupportedProblemTypeError,
 )
 
-import networkx as nx
-from fractions import Fraction
-from typing import Any, Optional, List, Dict, Set, Tuple, Union, cast, Iterable
+from unified_planning.model.walkers.any import AnyGetter
 
 
 class Problem(  # type: ignore[misc]
@@ -749,6 +757,78 @@ class Problem(  # type: ignore[misc]
         """
         return self._kind_factory().finalize()
 
+    @property
+    def domain_constants(self) -> Set["up.model.Object"]:
+        """Returns the `Objects` that are used as constants in the `Problem`,
+        that is those that appear in the expressions within actions, effects,
+        processes or quality metrics"""
+        domain_constants = set()
+        extractor = AnyGetter["up.model.Object"](
+            predicate=lambda x: x.is_object_exp(), extractor=lambda x: x.object()
+        )
+        for action in self._actions:
+            # Extract all the objects appearning in any expression within the action
+            if isinstance(action, InstantaneousAction):
+                for p in action.preconditions:
+                    domain_constants.update(extractor.get(p))
+                for e in action.effects:
+                    domain_constants.update(extractor.get(e.fluent))
+                    domain_constants.update(extractor.get(e.value))
+                    domain_constants.update(extractor.get(e.condition))
+                if isinstance(action, up.model.contingent.SensingAction):
+                    for of in action.observed_fluents:
+                        domain_constants.update(extractor.get(of))
+            elif isinstance(action, DurativeAction):
+                for _, cnds in action.conditions.items():
+                    for c in cnds:
+                        domain_constants.update(extractor.get(c))
+                for _, effs in action.effects.items():
+                    for e in effs:
+                        domain_constants.update(extractor.get(e.fluent))
+                        domain_constants.update(extractor.get(e.value))
+                        domain_constants.update(extractor.get(e.condition))
+                domain_constants.update(extractor.get(action.duration.lower))
+                domain_constants.update(extractor.get(action.duration.upper))
+            else:
+                raise ValueError(f"Unsupported action type: {type(action)}")
+
+        for ev in self.events:
+            for p in ev.preconditions:
+                domain_constants.update(extractor.get(p))
+            for e in ev.effects:
+                domain_constants.update(extractor.get(e.fluent))
+                domain_constants.update(extractor.get(e.value))
+                domain_constants.update(extractor.get(e.condition))
+
+        for proc in self.processes:
+            for p in proc.preconditions:
+                domain_constants.update(extractor.get(p))
+            for e in proc.effects:
+                domain_constants.update(extractor.get(e.fluent))
+                domain_constants.update(extractor.get(e.value))
+                domain_constants.update(extractor.get(e.condition))
+
+        for qm in self.quality_metrics:
+            if isinstance(
+                qm,
+                (
+                    MinimizeExpressionOnFinalState,
+                    MaximizeExpressionOnFinalState,
+                ),
+            ):
+                domain_constants.update(extractor.get(qm.expression))
+            elif isinstance(qm, Oversubscription):
+                for g in qm.goals.keys():
+                    domain_constants.update(extractor.get(g))
+            elif isinstance(qm, TemporalOversubscription):
+                for _, g in qm.goals.keys():
+                    domain_constants.update(extractor.get(g))
+            elif isinstance(qm, MinimizeActionCosts):
+                for c in qm.costs.values():
+                    domain_constants.update(extractor.get(c))
+
+        return domain_constants
+
 
 class _KindFactory:
     """Utility class to help analyze the kind of `AbstractProblem` subclass."""
@@ -757,7 +837,7 @@ class _KindFactory:
         self,
         pb: AbstractProblem,
         problem_class: str,
-        environment: "unified_planning.Environment",
+        environment: "up.Environment",
     ):
         assert isinstance(pb, MetricsMixin)
         assert isinstance(pb, FluentsSetMixin)
@@ -771,7 +851,7 @@ class _KindFactory:
         self.static_fluents: Set[Fluent] = pb.get_static_fluents()
         self.unused_fluents: Set[Fluent] = pb.get_unused_fluents()
 
-        self.environment: unified_planning.Environment = environment
+        self.environment: up.Environment = environment
         self.kind: up.model.ProblemKind = up.model.ProblemKind(
             version=LATEST_PROBLEM_KIND_VERSION
         )
@@ -830,8 +910,9 @@ class _KindFactory:
         self,
         e: "up.model.effect.Effect",
     ):
-        value = self.simplifier.simplify(e.value)
+        value = e.value
         fluents_in_value = self.environment.free_vars_extractor.get(value)
+        ops = self.operators_extractor.get(value)
         if e.is_conditional():
             self.update_problem_kind_expression(e.condition)
             self.kind.set_effects_kind("CONDITIONAL_EFFECTS")
@@ -891,6 +972,11 @@ class _KindFactory:
             if (
                 value_type.is_int_type() or value_type.is_real_type()
             ):  # the value is a number
+                if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
+                    self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
+                    self.kind.set_effects_kind(
+                        "INTERPRETED_FUNCTIONS_IN_NUMERIC_ASSIGNMENTS"
+                    )
                 if (  # if the fluent has increase/decrease constraints or the value assigned is not a constant,
                     # unset "SIMPLE_NUMERIC_PLANNING"
                     e.fluent in self.fluents_to_only_increase
@@ -898,16 +984,25 @@ class _KindFactory:
                     or not value.is_constant()
                 ):
                     self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
+
                 if any(f in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_NUMERIC_ASSIGNMENTS")
                 if any(f not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_NUMERIC_ASSIGNMENTS")
             elif value.type.is_bool_type():
+                if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
+                    self.kind.set_effects_kind(
+                        "INTERPRETED_FUNCTIONS_IN_BOOLEAN_ASSIGNMENTS"
+                    )
                 if any(f in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_BOOLEAN_ASSIGNMENTS")
                 if any(f not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_BOOLEAN_ASSIGNMENTS")
             elif value.type.is_user_type():
+                if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
+                    self.kind.set_effects_kind(
+                        "INTERPRETED_FUNCTIONS_IN_OBJECT_ASSIGNMENTS"
+                    )
                 if any(f in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_OBJECT_ASSIGNMENTS")
                 if any(f not in self.static_fluents for f in fluents_in_value):
@@ -944,6 +1039,9 @@ class _KindFactory:
             if self._has_range_vars(exp):
                 self.kind.set_conditions_kind("RANGE_VARIABLES")
             self.kind.set_conditions_kind("UNIVERSAL_CONDITIONS")
+        if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
+            self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
+            self.kind.set_conditions_kind("INTERPRETED_FUNCTIONS_IN_CONDITIONS")
         if OperatorKind.COUNT in ops:
             self.kind.set_conditions_kind("COUNTING")
         if OperatorKind.SET_MEMBER in ops:
@@ -1009,6 +1107,7 @@ class _KindFactory:
 
     def update_action_duration(self, duration: "up.model.DurationInterval"):
         lower, upper = duration.lower, duration.upper
+
         for dur_bound in (lower, upper):
             if dur_bound.type.is_int_type():
                 self.kind.set_expression_duration("INT_TYPE_DURATIONS")
@@ -1021,6 +1120,10 @@ class _KindFactory:
         free_vars = self.environment.free_vars_extractor.get(
             lower
         ) | self.environment.free_vars_extractor.get(upper)
+        ops = self.operators_extractor.get(lower) | self.operators_extractor.get(upper)
+        if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
+            self.kind.set_expression_duration("INTERPRETED_FUNCTIONS_IN_DURATIONS")
+
         if len(free_vars) > 0:
             only_static = True
             for fv in free_vars:
@@ -1074,7 +1177,7 @@ class _KindFactory:
             self.update_action_parameter(param)
         if isinstance(action, up.model.contingent.SensingAction):
             self.kind.set_problem_class("CONTINGENT")
-        if isinstance(action, up.model.tamp.InstantaneousMotionAction):
+        if isinstance(action, up.model.mixins.MotionConstraintsSetMixin):
             if len(action.motion_constraints) > 0:
                 self.kind.set_problem_class("TAMP")
         if isinstance(action, up.model.action.InstantaneousAction):

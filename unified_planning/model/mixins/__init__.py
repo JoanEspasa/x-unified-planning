@@ -25,6 +25,9 @@ from unified_planning.model.mixins.user_types_set import UserTypesSetMixin
 from unified_planning.model.mixins.agents_set import AgentsSetMixin
 from unified_planning.model.mixins.initial_state import InitialStateMixin
 from unified_planning.model.mixins.metrics import MetricsMixin
+from unified_planning.model.mixins.motion_constraints_set import (
+    MotionConstraintsSetMixin,
+)
 
 __all__ = [
     "ActionsSetMixin",
@@ -37,4 +40,5 @@ __all__ = [
     "AgentsSetMixin",
     "InitialStateMixin",
     "MetricsMixin",
+    "MotionConstraintsSetMixin",
 ]

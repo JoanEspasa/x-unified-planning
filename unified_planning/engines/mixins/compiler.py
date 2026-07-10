@@ -1,4 +1,5 @@
 # Copyright 2021-2023 AIPlan4EU project
+# Copyright 2024-2026 Unified Planning library and its maintainers
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,17 +21,20 @@ from enum import Enum, auto
 from typing import Optional
 from warnings import warn
 
+from unified_planning.model.fnode import FNode
+
 
 class CompilationKind(Enum):
     """Enum representing the available compilation kinds currently in the library."""
 
     GROUNDING = auto()
     CONDITIONAL_EFFECTS_REMOVING = auto()
-    COUNT_REMOVING = auto()
-    COUNT_INT_REMOVING = auto()
+    INTERPRETED_FUNCTIONS_REMOVING = auto()
     DISJUNCTIVE_CONDITIONS_REMOVING = auto()
     NEGATIVE_CONDITIONS_REMOVING = auto()
     QUANTIFIERS_REMOVING = auto()
+    COUNT_REMOVING = auto()
+    COUNT_INT_REMOVING = auto()
     ARRAYS_REMOVING = auto()
     SETS_REMOVING = auto()
     CONDITIONS_TO_PREDICATES_SIMPLIFIER = auto()
@@ -48,6 +52,7 @@ class CompilationKind(Enum):
     SA_MA_CONVERSION = auto()
     TIMED_TO_SEQUENTIAL = auto()
     DURATIVE_ACTIONS_TO_PROCESSES = auto()
+    UNDEFINED_INITIAL_NUMERIC_REMOVING = auto()
 
 
 class CompilerMixin(ABC):

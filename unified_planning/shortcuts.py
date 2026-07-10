@@ -1,4 +1,5 @@
 # Copyright 2021-2023 AIPlan4EU project
+# Copyright 2024-2026 Unified Planning library and its maintainers
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +24,8 @@ import unified_planning.model.types
 import unified_planning.model.multi_agent
 from unified_planning.environment import get_environment
 from unified_planning.model import *
+from unified_planning.model.motion import *
 from unified_planning.model.expression import SetExpression
-from unified_planning.model.tamp import *
 from unified_planning.model.problem_kind_versioning import LATEST_PROBLEM_KIND_VERSION
 from unified_planning.engines import (
     Engine,
@@ -195,6 +196,23 @@ def FluentExp(
     :return: The created ``Fluent`` Expression.
     """
     return get_environment().expression_manager.FluentExp(fluent, params)
+
+
+def InterpretedFunctionExp(
+    interpreted_function: "unified_planning.model.InterpretedFunction",
+    params: Sequence[Expression] = tuple(),  # -------
+) -> FNode:
+    """
+    | Creates an expression for the given ``interpreted_function`` and ``parameters``.
+    | Restriction: ``parameters type`` must be compatible with the ``InterpretedFunction`` :func:``signature <unified_planning.model.InterpretedFunction.signature>``
+
+    :param interpreted_function: The ``InterpretedFunction`` that will be set as the ``payload`` of this expression.
+    :param params: The Iterable of expressions acting as ``parameters`` for this ``InterpretedFunction``.
+    :return: The created ``InterpretedFunction`` Expression.
+    """
+    return get_environment().expression_manager.InterpretedFunctionExp(
+        interpreted_function, params
+    )
 
 
 def Always(expression: BoolExpression) -> FNode:
@@ -665,19 +683,19 @@ def MovableType(
 
 
 def ConfigurationType(
-    name: str, occupancy_map: OccupancyMap, size: int
+    name: str, occupancy_map: OccupancyMap, kind: ConfigurationKind
 ) -> unified_planning.model.types.Type:
     """
     Returns the configuration type defined in this :class:`~unified_planning.Environment`
-    with the given `name`, `occupancy_map` and `size`.
+    with the given `name`, `occupancy_map` and `kind`.
     If the type already exists, it is returned, otherwise it is created and returned.
 
     :param name: The name of this configuration type.
     :param occupancy_map: The occupancy map.
-    :param size: The size of the configuration.
+    :param kind: The kind of the configuration.
     :return: The retrieved or created `Type`.
     """
-    return get_environment().type_manager.ConfigurationType(name, occupancy_map, size)
+    return get_environment().type_manager.ConfigurationType(name, occupancy_map, kind)
 
 
 def OneshotPlanner(

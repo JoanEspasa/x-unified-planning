@@ -1,4 +1,5 @@
 # Copyright 2021-2023 AIPlan4EU project
+# Copyright 2024-2026 Unified Planning library and its maintainers
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,17 +36,14 @@ BoolExpression = Union[
     "up.model.fluent.Fluent",
     "up.model.parameter.Parameter",
     "up.model.variable.Variable",
-    "up.model.presence.Presence",
     "up.model.range_variable.RangeVariable",
+    "up.model.presence.Presence",
+    "up.model.interpreted_function.InterpretedFunction",
     bool,
 ]
 NumericConstant = Union[int, float, Fraction, str]
 NumericExpression = Union[NumericConstant, "up.model.fnode.FNode"]
-ConstantExpression = Union[
-    NumericExpression,
-    "up.model.object.Object",
-    bool,
-]
+ConstantExpression = Union[NumericExpression, "up.model.object.Object", bool]
 TimeExpression = Union[
     "up.model.timing.Timing",
     "up.model.timing.Timepoint",
@@ -120,9 +118,7 @@ class ExpressionManager(object):
         are both valid, and they are converted into (a,b,c)
         """
         for a in args:
-            if isinstance(a, (Set, set)):
-                yield a
-            elif isinstance(a, Iterable) and not isinstance(a, str):
+            if isinstance(a, Iterable) and not isinstance(a, str):
                 for p in a:
                     yield p
             else:
@@ -145,6 +141,11 @@ class ExpressionManager(object):
                     e.environment == self.environment
                 ), "Fluent has a different environment of the expression manager"
                 res.append(self.FluentExp(e))
+            elif isinstance(e, up.model.interpreted_function.InterpretedFunction):
+                assert (
+                    e.environment == self.environment
+                ), "InterpretedFunction has a different environment of the expression manager"
+                res.append(self.InterpretedFunctionExp(e))
             elif isinstance(e, up.model.parameter.Parameter):
                 assert (
                     e.environment == self.environment
@@ -203,6 +204,7 @@ class ExpressionManager(object):
         payload: Optional[
             Union[
                 "up.model.fluent.Fluent",
+                "up.model.interpreted_function.InterpretedFunction",
                 "up.model.object.Object",
                 "up.model.parameter.Parameter",
                 "up.model.variable.Variable",
@@ -579,7 +581,7 @@ class ExpressionManager(object):
         return self.create_node(node_type=OperatorKind.IFF, args=(left, right))
 
     def Exists(
-        self, expression: BoolExpression, *vars: Union["unified_planning.model.Variable", "unified_planning.model.range_variable.RangeVariable"]
+        self, expression: BoolExpression, *vars: "up.model.variable.Variable"
     ) -> "up.model.fnode.FNode":
         """
         Creates an expression of the form:
@@ -718,6 +720,31 @@ class ExpressionManager(object):
             )
         return self.create_node(
             node_type=OperatorKind.FLUENT_EXP, args=tuple(params_exp), payload=fluent
+        )
+
+    def InterpretedFunctionExp(
+        self,
+        interpreted_function: "up.model.interpreted_function.InterpretedFunction",
+        params: Sequence[Expression] = tuple(),
+    ) -> "up.model.fnode.FNode":
+        """
+        | Creates an expression for the given ``interpreted_function`` and ``parameters``.
+        | Restriction: ``parameters type`` must be compatible with the ``interpreted_function`` :func:``signature <unified_planning.model.interpreted_function.signature>``
+
+        :param interpreted_function: The ``InterpretedFunction`` that will be set as the ``payload`` of this expression.
+        :param params: The Sequence of expressions acting as ``parameters`` for this ``InterpretedFunction``.
+        :return: The created ``InterpretedFunction`` Expression.
+        """
+        assert interpreted_function.environment == self.environment
+        params_exp = self.auto_promote(params)
+        if interpreted_function.arity != len(params_exp):
+            raise UPExpressionDefinitionError(
+                f"In InterpretedFunctionExp, interpreted_function: {interpreted_function.name} has arity {interpreted_function.arity} but {len(params_exp)} parameters were passed."
+            )
+        return self.create_node(
+            node_type=OperatorKind.INTERPRETED_FUNCTION_EXP,
+            args=tuple(params_exp),
+            payload=interpreted_function,
         )
 
     def Dot(
