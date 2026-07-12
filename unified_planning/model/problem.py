@@ -18,7 +18,7 @@
 from itertools import chain, product
 import networkx as nx
 from fractions import Fraction
-from typing import Any, Optional, List, Dict, Set, Tuple, Union, cast, Iterable
+from typing import Any, Optional, List, Dict, Set, Tuple, Union, cast, Iterable, Iterator
 
 from unified_planning.model.metrics import (
     MaximizeExpressionOnFinalState,
@@ -683,6 +683,28 @@ class Problem(  # type: ignore[misc]
         """Removes the trajectory_constraints."""
         self._trajectory_constraints = []
 
+    @staticmethod
+    def _trajectory_constraint_bodies(
+        tc: "up.model.fnode.FNode",
+    ) -> Iterator["up.model.fnode.FNode"]:
+        """Yields the state formulas nested inside a trajectory
+        constraint, stripping the And/Forall wrappers and the temporal
+        operators (Always, Sometime, At-Most-Once, Sometime-Before,
+        Sometime-After)."""
+        if tc.is_and() or tc.is_forall():
+            for arg in tc.args:
+                yield from Problem._trajectory_constraint_bodies(arg)
+        elif (
+            tc.is_always()
+            or tc.is_sometime()
+            or tc.is_at_most_once()
+            or tc.is_sometime_before()
+            or tc.is_sometime_after()
+        ):
+            yield from tc.args
+        else:
+            yield tc
+
     @property
     def state_invariants(self) -> List["up.model.fnode.FNode"]:
         """Returns the List of ``state_invariants`` in the problem."""
@@ -736,6 +758,11 @@ class Problem(  # type: ignore[misc]
                 factory.kind.set_constraints_kind("STATE_INVARIANTS")
             else:
                 factory.kind.set_constraints_kind("TRAJECTORY_CONSTRAINTS")
+            # The state formulas nested inside the temporal operators
+            # contribute to the kind like any other condition (e.g. a
+            # Count inside an Always must surface as COUNTING).
+            for body in self._trajectory_constraint_bodies(tc):
+                factory.update_problem_kind_expression(body)
         for goal in chain(*self._timed_goals.values(), self._goals):
             factory.update_problem_kind_expression(goal)
         factory.update_problem_kind_initial_state(self)
