@@ -509,6 +509,20 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
                 return result
             return node
 
+        if node.is_range_variable_exp():
+            # A range variable is instantiated exactly like an integer parameter:
+            # _transform_quantifier registers it in int_params (by name) and binds
+            # its current value in instantiations. Without this case the reference
+            # falls through to _transform_generic, which returns None for a
+            # childless node and collapses the whole condition (dropping the
+            # action/goal).
+            var_name = node.range_variable().name
+            if var_name in int_params:
+                result = Int(instantiations[int_params[var_name]])
+                self._expression_cache[cache_key] = result
+                return result
+            return node
+
         if node.is_fluent_exp():
             result = self._transform_fluent_exp(old_problem, new_problem, node, int_params, instantiations)
             self._expression_cache[cache_key] = result
