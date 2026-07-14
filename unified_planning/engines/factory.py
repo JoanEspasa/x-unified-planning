@@ -212,7 +212,7 @@ DEFAULT_ENGINES_PREFERENCE_LIST = [
     "up_logarithmic_remover",
     "up_sets_remover",
     "up_conditions_to_predicates_simplifier",
-    "up_int_parameter_actions_remover",
+    "up_int_parameters_and_variables_remover",
     "up_integers_remover",
     "up_int_arrays_bits_remover",
     "up_state_invariants_remover",

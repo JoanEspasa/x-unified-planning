@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the integer parameter actions remover and int variable remover compiler."""
+"""This module defines the integer parameters and variables remover compiler."""
 from itertools import product
 from unified_planning.exceptions import UPProblemDefinitionError
 from unified_planning.model.fnode import FNode

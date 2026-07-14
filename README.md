@@ -100,15 +100,15 @@ advanced constructs into a representation compatible for a target planner.
 
 ### Available Compilers
 
-| Abbreviation | Name | Feature Removed                                 | Transforms Into                                                            |
-|---|---|-------------------------------------------------|----------------------------------------------------------------------------|
-| `IPAR` | INT_PARAMETER_ACTIONS_REMOVING | Integer parameters in actions and Int Variables | Expanded actions for each parameter value                                  |
-| `AR` | ARRAYS_REMOVING | (Multi)Array fluents of an *element_type*       | An *element_type* fluent + (multi)position objects (p0, p1, p2, ...) as parameters |
-| `ALR` | ARRAYS_LOGARITHMIC_REMOVING | Bounded integer array fluents                   | Boolean fluents representing integer bits (logarithmic encoding)           |
-| `IR` | INTEGERS_REMOVING | Bounded integer fluents                         | Boolean fluents + number objects (n0, n1, n2, ...) as parameters           |
-| `CR` | COUNT_REMOVING | Count expressions                               | Expanded boolean formulas (e.g., Count >= 2 becomes disjunctions)          |
-| `CIR` | COUNT_INT_REMOVING | Count expressions                               | Integer fluents + sum expressions (each condition becomes a 0/1 fluent)    |
-| `SR` | SETS_REMOVING | Set fluents                                     | Boolean array fluents (membership represented as boolean)                  |
+| Abbreviation | Name                                  | Feature Removed                                | Transforms Into                                                                                                              |
+|--------------|---------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `IPAVR`      | INT_PARAMETERS_AND_VARIABLES_REMOVING | Bounded Integer parameters and Int Variables   | Grounded instantiated actions and expanded quantifiers (forall/exists) over instantiated ranges  |
+| `AR`         | ARRAYS_REMOVING                       | (Multi)Array fluents of an *element_type*      | An *element_type* fluent + (multi)position objects (p0, p1, p2, ...) as parameters                                           |
+| `ALR`        | ARRAYS_LOGARITHMIC_REMOVING           | Bounded integer array fluents                  | Boolean fluents representing integer bits (logarithmic encoding)                                                             |
+| `IR`         | INTEGERS_REMOVING                     | Bounded integer fluents                        | Boolean fluents + number objects (n0, n1, n2, ...) as parameters                                                             |
+| `CR`         | COUNT_REMOVING                        | Count expressions                              | Expanded boolean formulas (e.g., Count >= 2 becomes disjunctions)                                                            |
+| `CIR`        | COUNT_INT_REMOVING                    | Count expressions                              | Integer fluents + sum expressions (each condition becomes a 0/1 fluent)                                                      |
+| `SR`         | SETS_REMOVING                         | Set fluents                                    | Boolean array fluents (membership represented as boolean)                                                                    |
 
 ### Compilation Strategies
 As described in the paper, we can chain these compilers to produce different PDDL models 
