@@ -61,7 +61,8 @@ class InitialStateMixin:
         if fluent.type.is_array_type() and type(value) is list:
             value = [value]
         fluent_exp, value_exp = self._env.expression_manager.auto_promote(fluent, value)
-        assert fluent_exp.is_fluent_exp(), "fluent field must be a fluent"
+        assert fluent_exp.is_fluent_exp() or fluent_exp.is_array_index(), \
+            "fluent field must be a fluent or an array access"
         if fluent.type.is_derived_bool_type():
             raise UPTypeError("You cannot set the initial value of a derived fluent!")
         if not fluent_exp.type.is_compatible(value_exp.type):
@@ -163,7 +164,7 @@ class InitialStateMixin:
         """Returns a list of fluents that have at least one undefined value in the initial state"""
         undef_fluents = []
         # gather a count of all explicit initial values for each fluent
-        inits = Counter([x.fluent() for x in self.explicit_initial_values])
+        inits = Counter([x.base_fluent().fluent() for x in self.explicit_initial_values])
         for fluent in self._fluent_set.fluents:
             if fluent in self._fluent_set.fluents_defaults:
                 continue  # fluent has a default values and thus can not be undefined
