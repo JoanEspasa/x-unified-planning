@@ -261,7 +261,7 @@ class FNode(object):
         assert self.is_variable_exp()
         return self._content.payload
 
-    def variables(self) -> List["unified_planning.model.variable.Variable"]:
+    def variables(self) -> List[Union["unified_planning.model.variable.Variable", "unified_planning.model.int_variable.IntVariable"]]:
         """Return the `Variables` of the `Exists` or `Forall`."""
         assert self.is_exists() or self.is_forall()
         return list(self._content.payload)
@@ -270,11 +270,6 @@ class FNode(object):
         """Return the variable of the IntVariableExp."""
         assert self.is_int_variable_exp()
         return self._content.payload
-
-    def int_variables(self) -> List["unified_planning.model.int_variable.IntVariable"]:
-        """Return the `IntVariables` of the `Exists` or `Forall`."""
-        assert self.is_int_variable_exp()
-        return list(self._content.payload)
 
     def object(self) -> "unified_planning.model.object.Object":
         """Return the `Object` stored in this expression."""
