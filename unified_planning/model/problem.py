@@ -1061,6 +1061,8 @@ class _KindFactory:
         if OperatorKind.OR in ops or OperatorKind.IMPLIES in ops:
             self.kind.set_conditions_kind("DISJUNCTIVE_CONDITIONS")
         if OperatorKind.EXISTS in ops:
+            if self._has_range_vars(exp):
+                self.kind.set_conditions_kind("RANGE_VARIABLES")
             self.kind.set_conditions_kind("EXISTENTIAL_CONDITIONS")
         if OperatorKind.FORALL in ops:
             if self._has_range_vars(exp):
@@ -1381,6 +1383,11 @@ class _KindFactory:
 
     def update_problem_kind_initial_state(self, init: InitialStateMixin):
         for fluent in init._fluents_with_undefined_values():
+            # Derived predicates are defined by axioms every state, not stored;
+            # a missing initial value is expected and must not flag the task as
+            # having an undefined initial state.
+            if fluent.type.is_derived_bool_type():
+                continue
             if fluent.type.is_int_type() or fluent.type.is_real_type():
                 self.kind.set_initial_state("UNDEFINED_INITIAL_NUMERIC")
             else:
