@@ -77,6 +77,7 @@ class FNode(object):
                 + self.get_nary_expression_string(", ", self.args)
             ),
             OperatorKind.DOT: lambda: f"{self._content.payload}.{self.arg(0)}",
+            OperatorKind.ARRAY_INDEX: lambda: f"{self.arg(0)}[{self.arg(1)}]",
             OperatorKind.SET_MEMBER: lambda: f"{self.arg(0)} in {self.arg(1)}",
             OperatorKind.SET_SUBSETEQ: lambda: f"{self.arg(0)} in {self.arg(1)}",
             OperatorKind.SET_DISJOINT: lambda: f"{self.arg(0)} ∩ {self.arg(1)} == ∅",
@@ -140,6 +141,20 @@ class FNode(object):
             raise ValueError("Unknown FNode type found")
 
         return repr_map[self.node_type]()
+
+    def __getitem__(self, index):
+        assert self.type.is_array_type(), "This expression has no array type"
+        return self.environment.expression_manager.ArrayIndex(self, index)
+
+    def base_fluent(self) -> "FNode":
+        """
+        For an array-write target (nested ARRAY_INDEX), descends through the indexings to return the underlying
+        FluentExp. For a plain fluent expression, returns itself.
+        """
+        node = self
+        while node.is_array_index():
+            node = node.arg(0)
+        return node
 
     @property
     def node_id(self) -> int:
@@ -451,6 +466,10 @@ class FNode(object):
     def is_dot(self) -> bool:
         """Test whether the node is the `DOT` operator."""
         return self.node_type == OperatorKind.DOT
+
+    def is_array_index(self) -> bool:
+        """Test whether the node is the `ARRAY_INDEX` operator."""
+        return self.node_type == OperatorKind.ARRAY_INDEX
 
     def is_set_member(self) -> bool:
         """Test whether the node is the `MEMBER` operator."""

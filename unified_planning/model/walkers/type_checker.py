@@ -518,6 +518,15 @@ class TypeChecker(walkers.dag.DagWalker):
             return None
         return args[0]
 
+    @walkers.handles(OperatorKind.ARRAY_INDEX)
+    def walk_array_index(
+            self, expression: FNode, args: List["unified_planning.model.types.Type"],
+    ) -> Optional["unified_planning.model.types.Type"]:
+        array_type = args[0]
+        assert expression.is_array_index()
+        assert array_type.is_array_type()
+        return array_type.elements_type
+
     @walkers.handles(OperatorKind.SET_MEMBER)
     def walk_member(
         self, expression: FNode, args: List["unified_planning.model.types.Type"]

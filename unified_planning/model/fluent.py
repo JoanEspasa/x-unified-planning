@@ -123,12 +123,7 @@ class Fluent:
 
     def __getitem__(self, index: Union["up.model.parameter.Parameter", "up.model.fnode.FNode", "up.model.int_variable.IntVariable", int]):
         assert self.type.is_array_type(), "The Fluent has no array type"
-        if isinstance(index, up.model.fnode.FNode):
-            return Fluent(self.name+'['+str(index)+']', self.type.elements_type, self.signature, self.environment)
-        if type(index) is int:
-            index = up.model.parameter.Parameter(str(index), self._env.type_manager.IntType(index,index), self.environment)
-        assert index.type.is_int_type() or index is up.model.int_variable.IntVariable, "The parameter has no integer type "
-        return Fluent(self.name+'['+str(index.name)+']', self.type.elements_type, self.signature, self.environment)
+        return  self.environment.expression_manager.ArrayIndex(self, index)
 
     def add(self, element):
         """ Adds `element` to `Fluent` that has a Set Type """

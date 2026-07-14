@@ -380,6 +380,18 @@ class Simplifier(walkers.dag.DagWalker):
         else:
             return self.manager.Count(new_args_count)
 
+    def walk_array_index(self, expression: FNode, args: List[FNode]) -> FNode:
+        assert len(args) == 2
+        array_arg, index_arg = args[0], args[1]
+        # Both constant: resolve the access to the concrete element
+        if array_arg.is_array_constant() and index_arg.is_int_constant():
+            elements = array_arg.array_constant_value()
+            i = index_arg.constant_value()
+            if 0 <= i < len(elements):
+                return elements[i]
+        # Otherwise rebuild the node with the simplified children
+        return self.manager.ArrayIndex(array_arg, index_arg)
+
     def walk_set_member(self, expression: FNode, args: List[FNode]) -> FNode:
         assert len(args) == 2
         if args[0] == self.manager.EMPTY_SET():

@@ -77,7 +77,13 @@ class Effect:
     ):
         fve = fluent.environment.free_vars_extractor
         fluents_in_fluent = set(fve.get(fluent))
-        fluents_in_fluent.remove(fluent)
+        if fluent.is_array_index():
+            base_fluent = fluent
+            while base_fluent.is_array_index():
+                base_fluent = base_fluent.arg(0)
+            fluents_in_fluent.remove(base_fluent)
+        else:
+            fluents_in_fluent.remove(fluent)
         if fluents_in_fluent:
             raise UPProblemDefinitionError(
                 f"The fluent: {fluent} contains other fluents in his arguments: {fluents_in_fluent}"
