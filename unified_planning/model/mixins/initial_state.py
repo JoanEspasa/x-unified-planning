@@ -44,6 +44,7 @@ class InitialStateMixin:
         fluent: Union["up.model.fnode.FNode", "up.model.fluent.Fluent"],
         value: Union[
             "up.model.expression.NumericExpression",
+            "up.model.expression.ListExpression",
             "up.model.fluent.Fluent",
             "up.model.object.Object",
             bool,

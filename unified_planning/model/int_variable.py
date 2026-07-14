@@ -35,19 +35,19 @@ class IntVariable:
     def __init__(
         self,
         name: str,
-        initial: Union[int, Parameter],
-        last: Union[int, Parameter],
+        initial: Union[int, Parameter, FNode],
+        last: Union[int, Parameter, FNode],
         environment: Optional[Environment] = None,
     ):
         self._name = name
         self._initial = initial
         self._last = last
         self._env = get_environment(environment)
-        if type(initial) == int:
+        if isinstance(initial, int):
             low = initial
         else:
             low = initial.type.lower_bound
-        if type(last) == int:
+        if isinstance(last, int):
             high = last
         else:
             high = last.type.upper_bound
@@ -59,11 +59,11 @@ class IntVariable:
     def __eq__(self, oth: object) -> bool:
         if isinstance(oth, IntVariable):
             return (
-                self._name == oth._name
-                and self._initial == self._initial
-                and self._last == self._last
-                and self._type_int == self._type_int
-                and self._env == oth._env
+                    self._name == oth._name
+                    and self._initial == oth._initial
+                    and self._last == oth._last
+                    and self._type_int == oth._type_int
+                    and self._env == oth._env
             )
         else:
             return False
@@ -77,20 +77,15 @@ class IntVariable:
         return self._name
 
     @property
-    def initial(self) -> Union[str, int]:
+    def initial(self) -> FNode:
         """Returns the `IntVariable` `Initial`."""
-        if type(self._initial) is Parameter:
-            return self._initial.name
-        else:
-            return self._initial
+        return self._env.expression_manager.auto_promote(self._initial)[0]
 
     @property
-    def last(self) -> Union[str, int]:
+    def last(self) -> FNode:
         """Returns the `IntVariable` `Last`."""
-        if type(self._last) is Parameter:
-            return self._last.name
-        else:
-            return self._last
+        return self._env.expression_manager.auto_promote(self._last)[0]
+
 
     @property
     def type(self) -> "unified_planning.model.types.Type":

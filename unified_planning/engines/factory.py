@@ -125,9 +125,9 @@ DEFAULT_ENGINES = {
         "unified_planning.engines.compilers.conditions_to_predicates_simplifier",
         "ConditionsToPredicatesSimplifier",
     ),
-    "up_int_parameter_actions_remover": (
-        "unified_planning.engines.compilers.int_parameter_actions_remover",
-        "IntParameterActionsRemover",
+    "up_int_parameters_and_variables_remover": (
+        "unified_planning.engines.compilers.int_parameters_and_variables_remover",
+        "IntParametersAndVariablesRemover",
     ),
     "up_integers_remover": (
         "unified_planning.engines.compilers.integers_remover",
