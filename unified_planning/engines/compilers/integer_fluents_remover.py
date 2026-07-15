@@ -40,9 +40,9 @@ from functools import partial
 from unified_planning.shortcuts import And, Or, Equals, Not, FALSE, UserType, TRUE, ObjectExp, DerivedBoolType, BoolType
 from typing import Dict
 
-class IntegersRemover(engines.engine.Engine, CompilerMixin):
+class IntegerFluentsRemover(engines.engine.Engine, CompilerMixin):
     """
-    Compiler that removes bounded integers from a planning problem.
+    Compiler that removes bounded integer fluents from a planning problem.
 
     Converts integer fluents to object-typed fluents where objects represent numeric values (n0, n1, n2, ...).
     Integer arithmetic and comparisons are handled by enumerating possible value combinations.
@@ -50,7 +50,7 @@ class IntegersRemover(engines.engine.Engine, CompilerMixin):
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.INTEGERS_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.INTEGER_FLUENTS_REMOVING)
         self._conditions: Dict[FNode, str] = {}
 
     @property
@@ -123,11 +123,11 @@ class IntegersRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= IntegersRemover.supported_kind()
+        return problem_kind <= IntegerFluentsRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.INTEGERS_REMOVING
+        return compilation_kind == CompilationKind.INTEGER_FLUENTS_REMOVING
 
     @staticmethod
     def resulting_problem_kind(

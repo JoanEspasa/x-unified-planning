@@ -54,7 +54,7 @@ COMPILATION_PIPELINES = {
         #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         #CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.GROUNDING,
-        CompilationKind.INTEGERS_REMOVING,
+        CompilationKind.INTEGER_FLUENTS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "log": [
@@ -74,7 +74,7 @@ COMPILATION_PIPELINES = {
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.COUNT_INT_REMOVING,
-        CompilationKind.INTEGERS_REMOVING,
+        CompilationKind.INTEGER_FLUENTS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "cin": [  # numeric
@@ -90,7 +90,7 @@ COMPILATION_PIPELINES = {
     "sci": [
         CompilationKind.SETS_REMOVING,
         CompilationKind.COUNT_INT_REMOVING,
-        CompilationKind.INTEGERS_REMOVING,
+        CompilationKind.INTEGER_FLUENTS_REMOVING,
         # CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "scin": [  # numeric
