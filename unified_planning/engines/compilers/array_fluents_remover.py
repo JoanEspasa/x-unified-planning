@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the quantifiers remover class."""
+"""This module defines the arrays remover class."""
 
 
 from itertools import product
@@ -32,11 +32,10 @@ import re
 
 class ArraysRemover(engines.engine.Engine, CompilerMixin):
     """
-    Removes arrays  by instantiating them.
+    Removes arrays by instantiating them.
     Also transforms array fluents into indexed fluents.
 
     Transforms:
-
         1. Array fluents -> indexed fluents with Index type (UserType)
 
     """
@@ -51,7 +50,7 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
 
     @property
     def name(self):
-        return "arm"
+        return "ar"
 
     @staticmethod
     def supported_kind() -> ProblemKind:
@@ -283,6 +282,8 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
             node: FNode
     ) -> Union[FNode, None]:
         """Transform expression by substituting array accesses."""
+        print("ARRAYS_REMOVER rep:", repr(node), "| node_type:", node.node_type)
+
         if node.is_constant() or node.is_variable_exp() or node.is_timing_exp() or node.is_parameter_exp():
             return node
         if node.is_fluent_exp():

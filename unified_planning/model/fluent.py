@@ -21,7 +21,7 @@ that defines the types of its parameters.
 import unified_planning as up
 from unified_planning.model.types import domain_size, domain_item, _IntType
 from unified_planning.environment import get_environment, Environment
-from unified_planning.exceptions import UPTypeError
+from unified_planning.exceptions import UPTypeError, UPProblemDefinitionError
 from typing import List, OrderedDict, Optional, Union, Iterator, cast, Tuple
 
 
@@ -123,6 +123,15 @@ class Fluent:
 
     def __getitem__(self, index: Union["up.model.parameter.Parameter", "up.model.fnode.FNode", "up.model.int_variable.IntVariable", int]):
         assert self.type.is_array_type(), "The Fluent has no array type"
+        idx = self.environment.expression_manager.auto_promote(index)[0]
+        simplified = idx.simplify()
+        if simplified.is_int_constant():
+            i = simplified.constant_value()
+            size = self.type.size
+            if not (0 <= i < size):
+                raise UPProblemDefinitionError(
+                    f"Array index {i} is out of bounds for array of size {size}."
+                )
         return  self.environment.expression_manager.ArrayIndex(self, index)
 
     def add(self, element):
