@@ -314,7 +314,7 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
     # ==================== ACTION TRANSFORMATION ====================
 
     def _add_effect_to_action(
-            self, action: Action, effect_type: str, fluent: FNode, value: FNode, condition: FNode, forall: Tuple
+            self, action: InstantaneousAction, effect_type: str, fluent: FNode, value: FNode, condition: FNode, forall: Tuple
     ):
         """Add effect to action based on type."""
         if effect_type == 'increase':
@@ -326,7 +326,7 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
 
     def _add_single_effect(
             self,
-            action: Action,
+            action: InstantaneousAction,
             effect_type: str,
             fluent: FNode,
             value: FNode,
@@ -351,7 +351,7 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
             problem: Problem,
             new_problem: Problem,
             effect: Effect,
-            new_action: Action,
+            new_action: InstantaneousAction,
     ) -> bool:
         """Add single effect to action. Returns False if action should be pruned."""
         # Determine effect type
@@ -374,8 +374,8 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
             self,
             problem: Problem,
             new_problem: Problem,
-            old_action: Action,
-            new_action: Action
+            old_action: InstantaneousAction,
+            new_action: InstantaneousAction
     ) -> bool:
         """Add all effects to instantiated action. Returns True if any effects added."""
         for effect in old_action.effects:
@@ -386,7 +386,7 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
         return len(new_action.effects) > 0
 
     def _transform_action_arrays(
-            self, problem: Problem, new_problem: Problem, old_action: Action
+            self, problem: Problem, new_problem: Problem, old_action: InstantaneousAction
     ) -> Union[Action, None]:
         """Transform array accesses in action."""
         params = OrderedDict((p.name, p.type) for p in old_action.parameters)
