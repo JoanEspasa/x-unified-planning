@@ -230,7 +230,7 @@ class Simplifier(walkers.dag.DagWalker):
             "up.model.variable.Variable"
         ] = self.environment.free_vars_oracle.get_free_variables(args[0])
         vars = tuple(var for var in expression.variables()
-                     if var in free_vars or isinstance(var, up.model.range_variable.RangeVariable))
+                     if var in free_vars or isinstance(var, up.model.int_variable.IntVariable))
         if len(vars) == 0:
             return args[0]
         return self.manager.Forall(args[0], *vars)
@@ -379,6 +379,18 @@ class Simplifier(walkers.dag.DagWalker):
             return self.manager.Int(0)
         else:
             return self.manager.Count(new_args_count)
+
+    def walk_array_index(self, expression: FNode, args: List[FNode]) -> FNode:
+        assert len(args) == 2
+        array_arg, index_arg = args[0], args[1]
+        # Both constant: resolve the access to the concrete element
+        if array_arg.is_array_constant() and index_arg.is_int_constant():
+            elements = array_arg.array_constant_value()
+            i = index_arg.constant_value()
+            if 0 <= i < len(elements):
+                return elements[i]
+        # Otherwise rebuild the node with the simplified children
+        return self.manager.ArrayIndex(array_arg, index_arg)
 
     def walk_set_member(self, expression: FNode, args: List[FNode]) -> FNode:
         assert len(args) == 2
@@ -567,7 +579,7 @@ class Simplifier(walkers.dag.DagWalker):
     @walkers.handles(
         op.OperatorKind.PARAM_EXP,
         op.OperatorKind.VARIABLE_EXP,
-        op.OperatorKind.RANGE_VARIABLE_EXP,
+        op.OperatorKind.INT_VARIABLE_EXP,
         op.OperatorKind.OBJECT_EXP,
         op.OperatorKind.TIMING_EXP,
         op.OperatorKind.PRESENT_EXP,

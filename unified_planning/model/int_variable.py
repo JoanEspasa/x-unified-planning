@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 """
-This module defines the RangeVariable class.
-A RangeVariable has a name and a type.
+This module defines the IntVariable class.
+A IntVariable has a name and a type.
 """
 
 
@@ -29,25 +29,25 @@ import unified_planning.model.walkers as walkers
 import unified_planning.model.operators as op
 
 
-class RangeVariable:
-    """Represents a variable; a `RangeVariable` has a name and a type."""
+class IntVariable:
+    """Represents an integer variable; a `IntVariable` has a name and a type."""
 
     def __init__(
         self,
         name: str,
-        initial: Union[int, Parameter],
-        last: Union[int, Parameter],
+        initial: Union[int, Parameter, FNode],
+        last: Union[int, Parameter, FNode],
         environment: Optional[Environment] = None,
     ):
         self._name = name
         self._initial = initial
         self._last = last
         self._env = get_environment(environment)
-        if type(initial) == int:
+        if isinstance(initial, int):
             low = initial
         else:
             low = initial.type.lower_bound
-        if type(last) == int:
+        if isinstance(last, int):
             high = last
         else:
             high = last.type.upper_bound
@@ -57,13 +57,13 @@ class RangeVariable:
         return f"integer[{str(self.initial)}, {str(self.last)}] {self.name}"
 
     def __eq__(self, oth: object) -> bool:
-        if isinstance(oth, RangeVariable):
+        if isinstance(oth, IntVariable):
             return (
-                self._name == oth._name
-                and self._initial == self._initial
-                and self._last == self._last
-                and self._type_int == self._type_int
-                and self._env == oth._env
+                    self._name == oth._name
+                    and self._initial == oth._initial
+                    and self._last == oth._last
+                    and self._type_int == oth._type_int
+                    and self._env == oth._env
             )
         else:
             return False
@@ -73,33 +73,28 @@ class RangeVariable:
 
     @property
     def name(self) -> str:
-        """Returns the `Variable` name."""
+        """Returns the `IntVariable` name."""
         return self._name
 
     @property
-    def initial(self) -> Union[str, int]:
-        """Returns the `Variable` `Initial`."""
-        if type(self._initial) is Parameter:
-            return self._initial.name
-        else:
-            return self._initial
+    def initial(self) -> FNode:
+        """Returns the `IntVariable` `Initial`."""
+        return self._env.expression_manager.auto_promote(self._initial)[0]
 
     @property
-    def last(self) -> Union[str, int]:
-        """Returns the `Variable` `Last`."""
-        if type(self._last) is Parameter:
-            return self._last.name
-        else:
-            return self._last
+    def last(self) -> FNode:
+        """Returns the `IntVariable` `Last`."""
+        return self._env.expression_manager.auto_promote(self._last)[0]
+
 
     @property
     def type(self) -> "unified_planning.model.types.Type":
-        """Returns the `Variable` `Type`."""
+        """Returns the `IntVariable` `Type`."""
         return self._type_int
 
     @property
     def environment(self) -> "Environment":
-        """Return the `RangeVariable` `Environment`."""
+        """Return the `IntVariable` `Environment`."""
         return self._env
 
     #

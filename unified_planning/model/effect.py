@@ -73,11 +73,17 @@ class Effect:
         value: "up.model.fnode.FNode",
         condition: "up.model.fnode.FNode",
         kind: EffectKind = EffectKind.ASSIGN,
-        forall: Iterable[Union["up.model.variable.Variable", "up.model.range_variable.RangeVariable"]] = tuple(),
+        forall: Iterable[Union["up.model.variable.Variable", "up.model.int_variable.IntVariable"]] = tuple(),
     ):
         fve = fluent.environment.free_vars_extractor
         fluents_in_fluent = set(fve.get(fluent))
-        fluents_in_fluent.remove(fluent)
+        if fluent.is_array_index():
+            base_fluent = fluent
+            while base_fluent.is_array_index():
+                base_fluent = base_fluent.arg(0)
+            fluents_in_fluent.remove(base_fluent)
+        else:
+            fluents_in_fluent.remove(fluent)
         if fluents_in_fluent:
             raise UPProblemDefinitionError(
                 f"The fluent: {fluent} contains other fluents in his arguments: {fluents_in_fluent}"
@@ -93,9 +99,9 @@ class Effect:
         free_vars.update(fvo.get_free_variables(value))
         free_vars.update(fvo.get_free_variables(condition))
 
-        def free_vars_without_duplicates() -> Iterator[Union["up.model.variable.Variable", "up.model.range_variable.RangeVariable"]]:
+        def free_vars_without_duplicates() -> Iterator[Union["up.model.variable.Variable", "up.model.int_variable.IntVariable"]]:
             # store seen variables to avoid duplicates
-            seen: Set[Union["up.model.variable.Variable", "up.model.range_variable.RangeVariable"]] = set()
+            seen: Set[Union["up.model.variable.Variable", "up.model.int_variable.IntVariable"]] = set()
             for v in forall:
                 if v in free_vars and v not in seen:
                     seen.add(v)
@@ -103,7 +109,7 @@ class Effect:
                         v, up.model.variable.Variable
                     ), "Typing not respected"
                     yield v
-                elif isinstance(v, up.model.range_variable.RangeVariable):
+                elif isinstance(v, up.model.int_variable.IntVariable):
                     yield v
             unbounded_vars = free_vars.difference(seen)
             if unbounded_vars:
@@ -111,7 +117,7 @@ class Effect:
                     f"Some variables in the effect are unbounded: {unbounded_vars}"
                 )
 
-        self._forall: Tuple[Union["up.model.variable.Variable", "up.model.range_variable.RangeVariable"], ...] = tuple(
+        self._forall: Tuple[Union["up.model.variable.Variable", "up.model.int_variable.IntVariable"], ...] = tuple(
             free_vars_without_duplicates()
         )
         assert (
@@ -218,7 +224,7 @@ class Effect:
         return self._kind
 
     @property
-    def forall(self) -> Tuple[Union["up.model.variable.Variable", "up.model.range_variable.RangeVariable"], ...]:
+    def forall(self) -> Tuple[Union["up.model.variable.Variable", "up.model.int_variable.IntVariable"], ...]:
         """Returns the `Variables` that are universally quantified in this `Effect`."""
         return self._forall
 

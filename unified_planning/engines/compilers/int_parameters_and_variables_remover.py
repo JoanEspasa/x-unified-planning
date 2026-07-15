@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the integer parameter actions remover and range variable remover compiler."""
-import re
+"""This module defines the integer parameters and variables remover compiler."""
 from itertools import product
 from unified_planning.exceptions import UPProblemDefinitionError
 from unified_planning.model.fnode import FNode
 import unified_planning.engines as engines
-from collections import OrderedDict
 from unified_planning.engines.mixins.compiler import CompilationKind, CompilerMixin
 from unified_planning.engines.results import CompilerResult
-from unified_planning.model import Problem, InstantaneousAction, Action, ProblemKind, Fluent, MinimizeActionCosts, \
-    RangeVariable, OperatorKind, Effect, Axiom, Expression
+from unified_planning.model import Problem, InstantaneousAction, Action, ProblemKind, MinimizeActionCosts, \
+    IntVariable, OperatorKind, Effect, Axiom, Expression
 from unified_planning.model.problem_kind_versioning import LATEST_PROBLEM_KIND_VERSION
 from unified_planning.engines.compilers.utils import get_fresh_name, lift_action_instance
 from typing import Dict, List, Optional, Tuple, OrderedDict, Union
@@ -30,14 +28,15 @@ from functools import partial
 from unified_planning.shortcuts import Int, FALSE, TRUE, Exists, Forall
 
 
-class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
+class IntParametersAndVariablesRemover(engines.engine.Engine, CompilerMixin):
     """
-    Compiler that removes integer parameters from actions by instantiating them.
+    IntParametersAndVariablesRemover remover class: this class offers the capability
+    to transform a problem with bounded integer parameters in actions and integer
+    variables into a problem without.
 
     Transforms:
     1. Integer action parameters -> grounded instantiated actions for each valid integer value
-    2. Range variables -> expanded quantifiers (forall/exists) over instantiated ranges
-    3. Array fluents -> indexed fluents with explicit array accesses
+    2. Int variables -> expanded quantifiers (forall/exists) over instantiated ranges
 
     Example:
         action(p: Int[1,3]) with precondition p < 2
@@ -48,13 +47,11 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.INT_PARAMETER_ACTIONS_REMOVING)
-        self.domains: Dict[str, List[Tuple[int, ...]]] = {}
-        self._expression_cache: Dict[Tuple[int, Tuple[int, ...]], FNode] = {}
+        CompilerMixin.__init__(self, CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING)
 
     @property
     def name(self):
-        return "ipar"
+        return "ipavr"
 
     @staticmethod
     def supported_kind() -> ProblemKind:
@@ -83,7 +80,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_conditions_kind("UNIVERSAL_CONDITIONS")
         supported_kind.set_conditions_kind("COUNTING")
         supported_kind.set_conditions_kind("MEMBERING")
-        supported_kind.set_conditions_kind("RANGE_VARIABLES")
+        supported_kind.set_conditions_kind("INT_VARIABLES")
         supported_kind.set_effects_kind("CONDITIONAL_EFFECTS")
         supported_kind.set_effects_kind("INCREASE_EFFECTS")
         supported_kind.set_effects_kind("DECREASE_EFFECTS")
@@ -125,11 +122,11 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= IntParameterActionsRemover.supported_kind()
+        return problem_kind <= IntParametersAndVariablesRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.INT_PARAMETER_ACTIONS_REMOVING
+        return compilation_kind == CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING
 
     @staticmethod
     def resulting_problem_kind(
@@ -137,190 +134,35 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
     ) -> ProblemKind:
         new_kind = problem_kind.clone()
         new_kind.unset_parameters("BOUNDED_INT_ACTION_PARAMETERS")
-        new_kind.unset_conditions_kind("RANGE_VARIABLES")
+        new_kind.unset_conditions_kind("INT_VARIABLES")
         return new_kind
 
-    # ======================== UTILITY METHODS ========================
-
-    def _save_array_domain(self, fluent: Fluent):
-        """
-        Extract and cache valid array positions for a fluent.
-        Stores all combinations of valid indices in self.domains, accounting for undefined positions if specified.
-        """
-        current_type = fluent.type
-        domain_ranges = []
-        dimensions = []
-
-        while current_type.is_array_type():
-            dimensions.append(current_type.size)
-            domain_ranges.append(range(current_type.size))
-            current_type = current_type.elements_type
-
-        all_positions = list(product(*domain_ranges))
-
-        if fluent.undefined_positions is not None:
-            valid_positions = [
-                pos for pos in all_positions
-                if pos not in fluent.undefined_positions
-            ]
-        else:
-            valid_positions = all_positions
-
-        self.domains[fluent.name] = valid_positions
-
-    def _extract_array_indices(
-            self,
-            fluent: Fluent,
-            int_params: Optional[Dict[str, int]] = None,
-            instantiations: Optional[Tuple[int, ...]] = None
-    ) -> Union[List[int], None]:
-        """
-        Extract and evaluate array indices from fluent name.
-        Parses numeric and parameter-based indices, substituting parameter values from the current instantiation.
-        Returns None if out of bounds or undefined.
-        """
-        pattern = r'\[(.*?)\]'
-        indices = []
-        fluent_name = fluent.name
-        for access_expr in re.findall(pattern, fluent_name):
-            if access_expr.isdigit():
-                # Constant index
-                index_value = int(access_expr)
-            else:
-                # Expression with parameters - substitute and evaluate
-                evaluated_expr = access_expr
-                for param_name, param_idx in int_params.items():
-                    evaluated_expr = re.sub(
-                        r'\b' + re.escape(param_name) + r'\b',
-                        str(instantiations[param_idx]),
-                        evaluated_expr
-                    )
-
-                # Evaluate arithmetic expression
-                try:
-                    index_value = eval(evaluated_expr)
-                except:
-                    return None
-
-            indices.append(index_value)
-
-        # Check if access is within valid domain
-        fluent_base_name = fluent_name.split('[')[0]
-        valid_accesses = self.domains.get(fluent_base_name, [])
-        if tuple(indices) not in valid_accesses:
-            return None
-        return indices
-
-    # ==================== QUICK VALIDATION ====================
-
-    def _quick_check_expression(
-            self, problem: Problem, node: FNode, int_params: Dict[str, int], instantiation: Tuple[int, ...]
-    ) -> Optional[bool]:
-        """
-        Quick check if expression is definitely false without full transformation.
-        Used to prune invalid instantiations early before full action generation.
-        Returns: True/False if definite, None if unknown.
-        """
-        # Check parameter equality
-        if node.is_equals():
-            left, right = node.arg(0), node.arg(1)
-
-            # parameter == constant
-            if left.is_parameter_exp() and right.is_int_constant():
-                param_name = left.parameter().name
-                if param_name in int_params:
-                    return instantiation[int_params[param_name]] == right.constant_value()
-
-            # constant == parameter
-            if right.is_parameter_exp() and left.is_int_constant():
-                param_name = right.parameter().name
-                if param_name in int_params:
-                    return instantiation[int_params[param_name]] == left.constant_value()
-
-            # Check array access out of bounds
-            if left.is_fluent_exp():
-                fluent_base = left.fluent().name.split('[')[0]
-                old_fluent = problem.fluent(fluent_base)
-                if old_fluent.type.is_array_type():
-                    indices = self._extract_array_indices(left.fluent(), int_params, instantiation)
-                    if indices is None:
-                        return None  # Out of bounds
-
-        # Check AND
-        elif node.is_and():
-            for arg in node.args:
-                result = self._quick_check_expression(problem, arg, int_params, instantiation)
-                if result == None:
-                    return None
-
-        # Check OR
-        elif node.is_or():
-            all_false = True
-            for arg in node.args:
-                result = self._quick_check_expression(problem, arg, int_params, instantiation)
-                if result == True:
-                    return True
-                if result != False:
-                    all_false = False
-            if all_false:
-                return False
-
-        return None  # Unknown
-
-    def _is_instantiation_valid(
-            self,
-            problem: Problem,
-            action: Action,
-            int_param_map: Dict[str, int],
-            instantiation: Tuple[int, ...]
-    ) -> bool:
-        """
-        Check if an instantiation is valid before creating the full action.
-        Quick validation on preconditions to prune impossible instantiations early.
-        Returns False if definitely impossible (e.g., precondition always false).
-        """
-        # Quick check preconditions
-        for precond in action.preconditions:
-            result = self._quick_check_expression(problem, precond, int_param_map, instantiation)
-            if result == False:
-                return False  # Definitely false precondition
-
-        return True
-
-    # ==================== RANGE VARIABLE TRANSFORMATION ====================
-
-    def _extract_variables(self, variables: List) -> Tuple[Tuple, Dict[str, Tuple[int, int]]]:
-        """Separate regular variables from range variables."""
+    # ==================== INT VARIABLE TRANSFORMATION ====================
+    def _split_variables(self, variables: List) -> Tuple[Tuple, Dict[str, Tuple[FNode, FNode]]]:
+        """Separate regular variables from int variables."""
         regular_vars = []
-        range_vars = {}
+        int_vars = {}
         for var in variables:
-            if isinstance(var, RangeVariable):
-                range_vars[var.name] = (var.initial, var.last)
+            if isinstance(var, IntVariable):
+                int_vars[var.name] = (var.initial, var.last)
             else:
                 regular_vars.append(var)
-        return tuple(regular_vars), range_vars
+        return tuple(regular_vars), int_vars
 
-    def _update_range_vars(
-            self, range_vars: Dict[str, Tuple[int, int]], int_params: Dict[str, int], instantiations: Tuple[int, ...]
-    ) -> Dict[str, Tuple[int, int]]:
+    def _evaluate_int_var_ranges(self, old_problem, new_problem, int_vars, int_params, instantiation):
         """
-        Evaluate range expressions with current parameter values.
-        Substitutes integer parameter instantiations into range expressions so that quantified variables have concrete bounds.
+        Evaluate the range bounds with the current parameter values, so that
+        quantified int variables get concrete integer bounds.
         """
         updated = {}
-        for var_name, (initial, last) in range_vars.items():
-            initial_str = str(initial)
-            last_str = str(last)
-            for param_name, param_idx in int_params.items():
-                param_value = str(instantiations[param_idx])
-                initial_str = initial_str.replace(param_name, param_value)
-                last_str = last_str.replace(param_name, param_value)
-
-            updated[var_name] = (eval(initial_str), eval(last_str))
+        for var_name, (initial, last) in int_vars.items():
+            new_initial = self._transform_expression(old_problem, new_problem, initial, int_params, instantiation)
+            new_last = self._transform_expression(old_problem, new_problem, last, int_params, instantiation)
+            updated[var_name] = (new_initial.constant_value(), new_last.constant_value())
         return updated
 
-    def _get_range_instantiations(self, ranges: Dict[str, Tuple[int, int]]) -> List[Tuple[int, ...]]:
-        """Generate all combinations of values for range variables."""
+    def _get_range_instantiation(self, ranges: Dict[str, Tuple[int, int]]) -> List[Tuple[int, ...]]:
+        """Generate all combinations of values for int variables."""
         if not ranges:
             return [()]
         range_iterables = [
@@ -337,46 +179,44 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             new_problem: Problem,
             node: FNode,
             int_params: Dict[str, int],
-            instantiations: Tuple[int, ...],
+            instantiation: Tuple[int, ...],
     ) -> FNode:
         """
-        Transform forall/exists by expanding range variables.
-        Replaces range variables with concrete instantiations, then expands the quantifier into a
+        Transform forall/exists by expanding int variables.
+        Replaces int variables with concrete instantiation, then expands the quantifier into a
         conjunction/disjunction over valid value ranges.
         """
-        regular_vars, range_vars = self._extract_variables(node.variables())
+        regular_vars, int_vars = self._split_variables(node.variables())
 
-        if not range_vars:
-            # No range variables: keep quantifier
+        if not int_vars:
+            # No int variables: keep quantifier
             new_args = [
-                self._transform_expression(old_problem, new_problem, arg, int_params, instantiations)
+                self._transform_expression(old_problem, new_problem, arg, int_params, instantiation)
                 for arg in node.args
             ]
-            new_args = self._handle_none_args(node.node_type, new_args)
+            new_args = self._handle_undef_args(node.node_type, new_args)
             if new_args is None:
                 return None
             em = old_problem.environment.expression_manager
             return em.create_node(node.node_type, tuple(new_args), regular_vars).simplify()
 
         # Update ranges with current parameter values
-        updated_ranges = self._update_range_vars(range_vars, int_params, instantiations)
+        updated_ranges = self._evaluate_int_var_ranges(old_problem, new_problem, int_vars, int_params, instantiation)
 
-        # Expand range variables
+        # Expand int variables
         expanded_int_params = int_params.copy()
-        for var_name in range_vars.keys():
+        for var_name in int_vars.keys():
             expanded_int_params[var_name] = len(expanded_int_params)
 
-        # Get all instantiations for range variables
-        range_instantiations = self._get_range_instantiations(updated_ranges)
+        # Get all instantiation for int variables
+        range_instantiation = self._get_range_instantiation(updated_ranges)
 
         # Expand quantifier body for each instantiation
         expanded_args = []
-        for range_inst in range_instantiations:
-            full_inst = instantiations + range_inst
+        for range_inst in range_instantiation:
+            full_inst = instantiation + range_inst
             for arg in node.args:
-                transformed = self._transform_expression(
-                    old_problem, new_problem, arg, expanded_int_params, full_inst
-                )
+                transformed = self._transform_expression(old_problem, new_problem, arg, expanded_int_params, full_inst)
                 if transformed is not None:
                     expanded_args.append(transformed)
         if not expanded_args:
@@ -395,49 +235,16 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
                 raise UPProblemDefinitionError(f"Error handling quantifiers!")
         return new_node
 
-    def _transform_fluent_exp(
-            self,
-            old_problem: Problem,
-            new_problem: Problem,
-            node: FNode,
-            int_params: Dict[str, int],
-            instantiations: Tuple[int, ...]
-    ) -> Union[FNode, None]:
-        """
-        Transform fluent expression by substituting integer parameters and array indices.
-        For array fluents, extracts concrete indices; for regular fluents, substitutes parameter values into arguments.
-        """
-        # Transform arguments first
+    def _transform_fluent_exp(self, old_problem, new_problem, node, int_params, instantiation):
         new_args = []
         for arg in node.args:
-            transformed = self._transform_expression(old_problem, new_problem, arg, int_params, instantiations)
+            transformed = self._transform_expression(old_problem, new_problem, arg, int_params, instantiation)
             if transformed is None:
                 return None
             new_args.append(transformed)
-
-        # If the array fluent is not being indexed - return the full array fluent
-        if not int_params and not instantiations:
-            return node
-        fluent_base_name = node.fluent().name.split('[')[0]
-        old_fluent = old_problem.fluent(fluent_base_name)
-        # Array fluent: extract indices from name
-        if old_fluent.type.is_array_type():
-            index_params = self._extract_array_indices(node.fluent(), int_params, instantiations)
-            if index_params is None:
-                return None
-            idx = "".join(f"[{i}]" for i in index_params)
-            return Fluent(
-                f"{fluent_base_name}{idx}",
-                node.fluent().type,
-                _signature=node.fluent().signature,
-                environment=node.fluent().environment,
-                undefined_positions=node.fluent().undefined_positions
-            )(*new_args)
-
-        # Regular fluent
         return node.fluent()(*new_args)
 
-    def _handle_none_args(self, node_type: OperatorKind, args: List) -> Union[List[FNode], None]:
+    def _handle_undef_args(self, node_type: OperatorKind, args: List) -> Union[List[FNode], None]:
         """Handle undefined (None) values in arguments based on operator semantics."""
         if None not in args:
             return args
@@ -457,18 +264,22 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             new_problem: Problem,
             node: FNode,
             int_params: Dict[str, int],
-            instantiations: Tuple[int, ...]
+            instantiation: Tuple[int, ...]
     ) -> Union[FNode, None]:
-        """Generic recursive transformation."""
+        """Generic recursive transformation. Arithmetic that becomes undefined after substitution
+        (e.g. division by zero) is handled and returned as None."""
         em = old_problem.environment.expression_manager
         new_args = [
-            self._transform_expression(old_problem, new_problem, arg, int_params, instantiations)
+            self._transform_expression(old_problem, new_problem, arg, int_params, instantiation)
             for arg in node.args
         ]
-        new_args = self._handle_none_args(node.node_type, new_args)
+        new_args = self._handle_undef_args(node.node_type, new_args)
         if new_args is None or new_args == []:
             return None
-        return em.create_node(node.node_type, tuple(new_args)).simplify()
+        try:
+            return em.create_node(node.node_type, tuple(new_args)).simplify()
+        except ZeroDivisionError: # division by zero is currently the only undefined arithmetic
+            return None
 
     def _transform_expression(
             self,
@@ -476,76 +287,46 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             new_problem: Problem,
             node: FNode,
             int_params: Optional[Dict[str, int]] = None,
-            instantiations: Optional[Tuple[int, ...]] = None,
+            instantiation: Optional[Tuple[int, ...]] = None,
     ) -> Union[FNode, None]:
         """
         Transform expression by substituting integer parameters and expanding quantifiers, replacing:
-        - Integer parameters with their instantiated constant values
-        - Array accesses with indexed fluent names
-        - Range variables with concrete bounds
+        - Integer parameters and int variables with their instantiated values
+        - Quantifiers over int variables expanded into and/or
         """
         if int_params is None:
             int_params = {}
-        if instantiations is None:
-            instantiations = ()
-        cache_key = (id(node), instantiations)
-        if cache_key in self._expression_cache:
-            if self._expression_cache[cache_key] is None:
-                return None
-            return self._expression_cache[cache_key]
-
+        if instantiation is None:
+            instantiation = ()
         # Base cases
         if node.is_constant() or node.is_variable_exp() or node.is_timing_exp():
+            return node
+
+        if node.is_int_variable_exp():
+            var_name = node.int_variable().name
+            if var_name in int_params:
+                var_index = int_params[var_name]
+                return Int(instantiation[var_index])
             return node
 
         if node.is_parameter_exp():
             param_name = node.parameter().name
             if param_name in int_params:
-                param_index = int_params[param_name]
-                result = Int(instantiations[param_index])
-                self._expression_cache[cache_key] = result
-                if result is None:
-                    return None
-                return result
-            return node
-
-        if node.is_range_variable_exp():
-            # A range variable is instantiated exactly like an integer parameter:
-            # _transform_quantifier registers it in int_params (by name) and binds
-            # its current value in instantiations. Without this case the reference
-            # falls through to _transform_generic, which returns None for a
-            # childless node and collapses the whole condition (dropping the
-            # action/goal).
-            var_name = node.range_variable().name
-            if var_name in int_params:
-                result = Int(instantiations[int_params[var_name]])
-                self._expression_cache[cache_key] = result
-                return result
+                return Int(instantiation[int_params[param_name]])
             return node
 
         if node.is_fluent_exp():
-            result = self._transform_fluent_exp(old_problem, new_problem, node, int_params, instantiations)
-            self._expression_cache[cache_key] = result
-            if result is None:
-                return None
-            return result
+            return self._transform_fluent_exp(old_problem, new_problem, node, int_params, instantiation)
 
         if node.is_forall() or node.is_exists():
-            result = self._transform_quantifier(old_problem, new_problem, node, int_params, instantiations)
-            self._expression_cache[cache_key] = result
-            if result is None:
-                return None
-            return result
-        result = self._transform_generic(old_problem, new_problem, node, int_params, instantiations)
-        self._expression_cache[cache_key] = result
-        if result is None:
-            return None
-        return result
+            return self._transform_quantifier(old_problem, new_problem, node, int_params, instantiation)
+
+        return self._transform_generic(old_problem, new_problem, node, int_params, instantiation)
 
     # ==================== ACTION TRANSFORMATION ====================
 
     def _add_effect_to_action(
-            self, action: Action, effect_type: str, fluent: FNode, value: FNode, condition: FNode, forall: Tuple
+            self, action: InstantaneousAction, effect_type: str, fluent: FNode, value: FNode, condition: FNode, forall: Tuple
     ):
         """Add effect to action, dispatching by effect type (assign/increase/decrease)."""
         if effect_type == 'increase':
@@ -557,7 +338,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
 
     def _add_single_effect(
             self,
-            action: Action,
+            action: InstantaneousAction,
             effect_type: str,
             fluent: FNode,
             value: FNode,
@@ -570,35 +351,37 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         Prunes invalid effects (e.g., assignments violating integer bounds).
         Returns False if action should be pruned.
         """
-        # Handle unconditional effects
+        # Unconditional effects
         if original_condition == TRUE():
             if fluent is None or value is None:
                 return False
             if fluent.type.is_int_type() and value.is_constant():
                 if not fluent.type.lower_bound <= value.constant_value() <= fluent.type.upper_bound:
+                    # Unconditional effect out of bounds: discard the action.
                     return False
-            self._add_effect_to_action( action, effect_type, fluent, value, condition, forall)
-        # Handle conditional effects
+            self._add_effect_to_action(action, effect_type, fluent, value, condition, forall)
+        # Conditional effects
         else:
             if condition not in [None, FALSE()] and fluent is not None and value is not None:
-                if (fluent.type.is_int_type() and
+                if (fluent.type.is_int_type() and value.is_constant() and
                         not fluent.type.lower_bound <= value.constant_value() <= fluent.type.upper_bound):
+                    # Conditional effect out of bounds: discard just this effect, keep the action.
                     return True
                 self._add_effect_to_action(action, effect_type, fluent, value, condition, forall)
         return True
 
     def _add_instantiated_effect(
             self,
-            problem: Problem,
+            old_problem: Problem,
             new_problem: Problem,
             effect: Effect,
-            new_action: Action,
+            new_action: InstantaneousAction,
             int_param_map: Dict[str, int],
             instantiation: Tuple[int, ...]
     ) -> bool:
         """
-        Add single effect to action, handling forall with range variables.
-        Expands forall effects over range variables into individual effects for each instantiation.
+        Add single effect to action, handling forall with int variables.
+        Expands forall effects over int variables into individual effects for each instantiation.
         """
         if effect.is_increase():
             effect_type = 'increase'
@@ -607,30 +390,30 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         else:
             effect_type = 'none'
 
-        regular_forall, range_vars = self._extract_variables(effect.forall)
-        if not range_vars:
-            new_fluent = self._transform_expression(problem, new_problem, effect.fluent, int_param_map, instantiation)
-            new_value = self._transform_expression(problem, new_problem, effect.value, int_param_map, instantiation)
-            new_condition = self._transform_expression(problem, new_problem, effect.condition, int_param_map, instantiation)
+        regular_forall, int_vars = self._split_variables(list(effect.forall))
+        if not int_vars:
+            new_fluent = self._transform_expression(old_problem, new_problem, effect.fluent, int_param_map, instantiation)
+            new_value = self._transform_expression(old_problem, new_problem, effect.value, int_param_map, instantiation)
+            new_condition = self._transform_expression(old_problem, new_problem, effect.condition, int_param_map, instantiation)
 
             return self._add_single_effect(
                 new_action, effect_type, new_fluent, new_value, new_condition, effect.condition, regular_forall
             )
 
-        # Evaluate range variables with current instantiation
-        updated_ranges = self._update_range_vars(range_vars, int_param_map, instantiation)
+        # Evaluate int variables with current instantiation
+        updated_ranges = self._evaluate_int_var_ranges(old_problem, new_problem, int_vars, int_param_map, instantiation)
 
-        # Expand forall with range variables
+        # Expand forall with int variables
         expanded_int_params = int_param_map.copy()
-        for var_name in range_vars.keys():
+        for var_name in int_vars.keys():
             expanded_int_params[var_name] = len(expanded_int_params)
 
-        range_insts = self._get_range_instantiations(updated_ranges)
+        range_insts = self._get_range_instantiation(updated_ranges)
         for range_inst in range_insts:
             full_inst = instantiation + range_inst
-            new_fluent = self._transform_expression(problem, new_problem, effect.fluent, expanded_int_params, full_inst)
-            new_value = self._transform_expression(problem, new_problem, effect.value, expanded_int_params, full_inst)
-            new_condition = self._transform_expression(problem, new_problem, effect.condition, expanded_int_params, full_inst)
+            new_fluent = self._transform_expression(old_problem, new_problem, effect.fluent, expanded_int_params, full_inst)
+            new_value = self._transform_expression(old_problem, new_problem, effect.value, expanded_int_params, full_inst)
+            new_condition = self._transform_expression(old_problem, new_problem, effect.condition, expanded_int_params, full_inst)
             success = self._add_single_effect(
                 new_action, effect_type, new_fluent, new_value, new_condition, effect.condition, regular_forall
             )
@@ -642,8 +425,8 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             self,
             problem: Problem,
             new_problem: Problem,
-            old_action: Action,
-            new_action: Action,
+            old_action: InstantaneousAction,
+            new_action: InstantaneousAction,
             int_param_map: Dict[str, int],
             instantiation: Tuple[int, ...]
     ) -> bool:
@@ -663,7 +446,7 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             self,
             problem: Problem,
             new_problem: Problem,
-            action: Action,
+            action: InstantaneousAction,
             regular_params: OrderedDict,
             int_param_map: Dict[str, int],
             instantiation: Tuple[int, ...]
@@ -695,10 +478,10 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
         return new_action
 
     def _instantiate_action(
-            self, problem: Problem, new_problem: Problem, action: Action
+            self, problem: Problem, new_problem: Problem, action: InstantaneousAction
     ) -> List[Tuple[Action, Tuple[int, ...]]]:
         """
-        Create all valid instantiations of an action for integer parameters.
+        Create all valid instantiation of an action for integer parameters.
         Generates Cartesian product of integer parameter ranges, validates each, and returns list of pairs for valid instances.
         """
         # Separate regular and integer parameters
@@ -715,12 +498,12 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             else:
                 raise UPProblemDefinitionError(f"Parameter type {param.type} not supported")
 
-        # Generate all instantiations
-        instantiations = self._get_range_instantiations(
+        # Generate all instantiation
+        instantiation = self._get_range_instantiation(
             {f"p{i}": r for i, r in enumerate(int_param_ranges)}
         ) if int_param_ranges else [()]
         result = []
-        for inst in instantiations:
+        for inst in instantiation:
             new_action = self._create_instantiated_action(
                 problem, new_problem, action, regular_params, int_param_map, inst
             )
@@ -800,10 +583,9 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
             old_cost = qm.get_action_cost(old_action)
             # If cost is a parameter, substitute its instantiated value
             if old_cost.is_parameter_exp():
-                # Find which integer parameter this is
                 param_idx = 0
                 for param in old_action.parameters:
-                    if param.name == str(old_cost):
+                    if old_cost.is_parameter_exp() and old_cost.parameter() == param:
                         break
                     if param.type.is_int_type():
                         param_idx += 1
@@ -826,20 +608,13 @@ class IntParameterActionsRemover(engines.engine.Engine, CompilerMixin):
     ) -> CompilerResult:
         """Main compilation."""
         assert isinstance(problem, Problem)
-        self._expression_cache.clear()
 
-        # Create new problem
         new_problem = problem.clone()
         new_problem.name = f"{self.name}_{problem.name}"
         new_problem.clear_actions()
         new_problem.clear_axioms()
         new_problem.clear_goals()
         new_problem.clear_quality_metrics()
-
-        # Transform components
-        for fluent in new_problem.fluents:
-            if fluent.type.is_array_type():
-                self._save_array_domain(fluent)
 
         new_to_old = self._transform_actions(problem, new_problem)
         self._transform_quality_metrics(problem, new_problem, new_to_old)

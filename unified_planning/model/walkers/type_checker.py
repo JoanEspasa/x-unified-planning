@@ -235,12 +235,12 @@ class TypeChecker(walkers.dag.DagWalker):
         assert len(args) == 0
         return expression.variable().type
 
-    def walk_range_variable_exp(
+    def walk_int_variable_exp(
         self, expression: FNode, args: List["unified_planning.model.types.Type"]
     ) -> "unified_planning.model.types.Type":
         assert expression is not None
         assert len(args) == 0
-        return expression.range_variable().type
+        return expression.int_variable().type
 
     def walk_object_exp(
         self, expression: FNode, args: List["unified_planning.model.types.Type"]
@@ -517,6 +517,15 @@ class TypeChecker(walkers.dag.DagWalker):
         if not t.is_fluent_exp():
             return None
         return args[0]
+
+    @walkers.handles(OperatorKind.ARRAY_INDEX)
+    def walk_array_index(
+            self, expression: FNode, args: List["unified_planning.model.types.Type"],
+    ) -> Optional["unified_planning.model.types.Type"]:
+        array_type = args[0]
+        assert expression.is_array_index()
+        assert array_type.is_array_type()
+        return array_type.elements_type
 
     @walkers.handles(OperatorKind.SET_MEMBER)
     def walk_member(

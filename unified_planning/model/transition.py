@@ -256,7 +256,7 @@ class UntimedEffectMixin:
         fluent: Union["up.model.fnode.FNode", "up.model.fluent.Fluent"],
         value: "up.model.expression.Expression",
         condition: "up.model.expression.BoolExpression" = True,
-        forall: Iterable["up.model.variable.Variable"] = tuple(),
+        forall: Iterable[Union["up.model.variable.Variable", "up.model.int_variable.IntVariable"]] = tuple(),
     ):
         """
         Adds the given `assignment` to the `action's effects`.
@@ -273,9 +273,9 @@ class UntimedEffectMixin:
             value_exp,
             condition_exp,
         ) = self._environment.expression_manager.auto_promote(fluent, value, condition)
-        if not fluent_exp.is_fluent_exp() and not fluent_exp.is_dot():
+        if not fluent_exp.is_fluent_exp() and not fluent_exp.is_dot() and not fluent_exp.is_array_index():
             raise UPUsageError(
-                "fluent field of add_effect must be a Fluent or a FluentExp or a Dot."
+                "fluent field of add_effect must be a Fluent or a FluentExp or a Dot or an ArrayIndex."
             )
         if not (
             self._environment.type_checker.get_type(condition_exp).is_bool_type()
@@ -319,9 +319,9 @@ class UntimedEffectMixin:
             value,
             condition,
         )
-        if not fluent_exp.is_fluent_exp() and not fluent_exp.is_dot():
+        if not fluent_exp.is_fluent_exp() and not fluent_exp.is_dot() and not fluent_exp.is_array_index():
             raise UPUsageError(
-                "fluent field of add_increase_effect must be a Fluent or a FluentExp or a Dot."
+                "fluent field of add_increase_effect must be a Fluent or a FluentExp or a Dot or an ArrayIndex."
             )
         if not condition_exp.type.is_bool_type():
             raise UPTypeError("Effect condition is not a Boolean condition!")
@@ -363,9 +363,9 @@ class UntimedEffectMixin:
             value_exp,
             condition_exp,
         ) = self._environment.expression_manager.auto_promote(fluent, value, condition)
-        if not fluent_exp.is_fluent_exp() and not fluent_exp.is_dot():
+        if not fluent_exp.is_fluent_exp() and not fluent_exp.is_dot() and not fluent_exp.is_array_index():
             raise UPUsageError(
-                "fluent field of add_decrease_effect must be a Fluent or a FluentExp or a Dot."
+                "fluent field of add_decrease_effect must be a Fluent or a FluentExp or a Dot or an ArrayIndex."
             )
         if not condition_exp.type.is_bool_type():
             raise UPTypeError("Effect condition is not a Boolean condition!")

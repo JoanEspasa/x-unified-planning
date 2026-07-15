@@ -112,6 +112,9 @@ class FluentsSetMixin:
         :param typename: If only the `name` of the `fluent` is given, this is the `fluent's type` (passed to the `Fluent` constructor).
         :param default_initial_value: If provided, defines the default value taken in initial state by
                                       a state variable of this `fluent` that has no explicit value.
+                                      For array fluents, the default is applied to every position of the
+                                      array; positions listed in `undefined_positions` are excluded, as
+                                      they are removed during compilation.
         :param kwargs: If only the `name` of the `fluent` is given, these are the `fluent's parameters` (passed to the `Fluent` constructor).
         :return: The `fluent` passed or constructed.
 
@@ -147,10 +150,11 @@ class FluentsSetMixin:
                 warn(msg)
         self._fluents.append(fluent)
         if not default_initial_value is None:
-            assert not (type(default_initial_value) == list), \
-                f"The default initial value must match the type of the deepest elements in the structure."
+            assert not (isinstance(default_initial_value, list)), \
+                "The default initial value must be a single element, not a list: it is applied to " \
+                "every position of the array, so it must match the type of the deepest elements."
             if fluent.type.is_set_type():
-                assert default_initial_value == get_environment().expression_manager.EMPTY_SET() or isinstance(default_initial_value, (set, Set)), f"The default initial value must be a set type."
+                assert default_initial_value == self.environment.expression_manager.EMPTY_SET() or isinstance(default_initial_value, (set, Set)), f"The default initial value must be a set type."
             (v_exp,) = self.environment.expression_manager.auto_promote(
                 default_initial_value
             )

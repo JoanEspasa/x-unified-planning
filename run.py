@@ -41,44 +41,44 @@ from unified_planning.shortcuts import (
 # Pipelines marked "numeric" keep integer fluents (no INTEGERS_REMOVING).
 COMPILATION_PIPELINES = {
     "up": [
-        CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
-        CompilationKind.ARRAYS_REMOVING,
-        CompilationKind.USERTYPE_FLUENTS_REMOVING,
+        CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
+        #CompilationKind.ARRAYS_REMOVING,
+        #CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "int": [  # numeric
-        #CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
+        #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         #CompilationKind.ARRAYS_REMOVING,
         CompilationKind.BOUNDED_TYPES_REMOVING
     ],
     "uti": [
-        #CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
+        #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         #CompilationKind.ARRAYS_REMOVING,
         CompilationKind.GROUNDING,
         CompilationKind.INTEGERS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "log": [
-        #CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
+        #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         #CompilationKind.ARRAYS_REMOVING,
         CompilationKind.GROUNDING,
         CompilationKind.LOGARITHMIC_REMOVING,
         #CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "c": [
-        CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
+        CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAYS_REMOVING,
         CompilationKind.COUNT_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "ci": [
-        CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
+        CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAYS_REMOVING,
         CompilationKind.COUNT_INT_REMOVING,
         CompilationKind.INTEGERS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "cin": [  # numeric
-        CompilationKind.INT_PARAMETER_ACTIONS_REMOVING,
+        CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAYS_REMOVING,
         CompilationKind.COUNT_INT_REMOVING,
     ],

@@ -39,8 +39,8 @@ for i, s in enumerate(initial_state):
 
 rotate_clockwise = InstantaneousAction('rotate_clockwise', n=IntType(0, nodes-2))
 n = rotate_clockwise.parameter('n')
-g = RangeVariable('g', n+1, nodes-1)
-b = RangeVariable('b', 0, n)
+g = IntVariable('g', n+1, nodes-1)
+b = IntVariable('b', 0, n)
 for i in range(nodes):
     for j in range(i + 1, nodes):
         if j == i + 1:
@@ -75,8 +75,8 @@ folding_problem.add_action(rotate_clockwise)
 
 rotate_counter_clockwise = InstantaneousAction('rotate_counter_clockwise', n=IntType(0, nodes-1))
 n = rotate_counter_clockwise.parameter('n')
-g = RangeVariable('g', n+1, nodes-1)
-b = RangeVariable('b', 0, n)
+g = IntVariable('g', n+1, nodes-1)
+b = IntVariable('b', 0, n)
 for i in range(nodes):
     for j in range(i + 1, nodes):
         if j == i + 1:

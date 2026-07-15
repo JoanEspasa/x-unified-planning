@@ -77,6 +77,7 @@ class FNode(object):
                 + self.get_nary_expression_string(", ", self.args)
             ),
             OperatorKind.DOT: lambda: f"{self._content.payload}.{self.arg(0)}",
+            OperatorKind.ARRAY_INDEX: lambda: f"{self.arg(0)}[{self.arg(1)}]",
             OperatorKind.SET_MEMBER: lambda: f"{self.arg(0)} in {self.arg(1)}",
             OperatorKind.SET_SUBSETEQ: lambda: f"{self.arg(0)} in {self.arg(1)}",
             OperatorKind.SET_DISJOINT: lambda: f"{self.arg(0)} ∩ {self.arg(1)} == ∅",
@@ -88,7 +89,7 @@ class FNode(object):
             OperatorKind.SET_DIFFERENCE: lambda: f"{self.arg(0)} - {self.arg(1)}",
             OperatorKind.PARAM_EXP: lambda: self._content.payload.name,
             OperatorKind.VARIABLE_EXP: lambda: self._content.payload.name,
-            OperatorKind.RANGE_VARIABLE_EXP: lambda: self._content.payload.name,
+            OperatorKind.INT_VARIABLE_EXP: lambda: self._content.payload.name,
             OperatorKind.OBJECT_EXP: lambda: self._content.payload.name,
             OperatorKind.TIMING_EXP: lambda: str(self._content.payload),
             OperatorKind.PRESENT_EXP: lambda: str(self._content.payload),
@@ -140,6 +141,20 @@ class FNode(object):
             raise ValueError("Unknown FNode type found")
 
         return repr_map[self.node_type]()
+
+    def __getitem__(self, index):
+        assert self.type.is_array_type(), "This expression has no array type"
+        return self.environment.expression_manager.ArrayIndex(self, index)
+
+    def base_fluent(self) -> "FNode":
+        """
+        For an array-write target (nested ARRAY_INDEX), descends through the indexings to return the underlying
+        FluentExp. For a plain fluent expression, returns itself.
+        """
+        node = self
+        while node.is_array_index():
+            node = node.arg(0)
+        return node
 
     @property
     def node_id(self) -> int:
@@ -246,20 +261,15 @@ class FNode(object):
         assert self.is_variable_exp()
         return self._content.payload
 
-    def variables(self) -> List["unified_planning.model.variable.Variable"]:
+    def variables(self) -> List[Union["unified_planning.model.variable.Variable", "unified_planning.model.int_variable.IntVariable"]]:
         """Return the `Variables` of the `Exists` or `Forall`."""
         assert self.is_exists() or self.is_forall()
         return list(self._content.payload)
 
-    def range_variable(self) -> "unified_planning.model.range_variable.RangeVariable":
-        """Return the variable of the RangeVariableExp."""
-        assert self.is_range_variable_exp()
+    def int_variable(self) -> "unified_planning.model.int_variable.IntVariable":
+        """Return the variable of the IntVariableExp."""
+        assert self.is_int_variable_exp()
         return self._content.payload
-
-    def range_variables(self) -> List["unified_planning.model.range_variable.RangeVariable"]:
-        """Return the `RangeVariables` of the `Exists` or `Forall`."""
-        assert self.is_range_variable_exp()
-        return list(self._content.payload)
 
     def object(self) -> "unified_planning.model.object.Object":
         """Return the `Object` stored in this expression."""
@@ -404,9 +414,9 @@ class FNode(object):
         """Test whether the node is a :class:`~unified_planning.model.Variable` Expression."""
         return self.node_type == OperatorKind.VARIABLE_EXP
 
-    def is_range_variable_exp(self) -> bool:
-        """Test whether the node is a :class:`~unified_planning.model.RngeVariable` Expression."""
-        return self.node_type == OperatorKind.RANGE_VARIABLE_EXP
+    def is_int_variable_exp(self) -> bool:
+        """Test whether the node is a :class:`~unified_planning.model.IntVariable` Expression."""
+        return self.node_type == OperatorKind.INT_VARIABLE_EXP
 
     def is_object_exp(self) -> bool:
         """Test whether the node is an :class:`~unified_planning.model.Object` Expression."""
@@ -451,6 +461,10 @@ class FNode(object):
     def is_dot(self) -> bool:
         """Test whether the node is the `DOT` operator."""
         return self.node_type == OperatorKind.DOT
+
+    def is_array_index(self) -> bool:
+        """Test whether the node is the `ARRAY_INDEX` operator."""
+        return self.node_type == OperatorKind.ARRAY_INDEX
 
     def is_set_member(self) -> bool:
         """Test whether the node is the `MEMBER` operator."""

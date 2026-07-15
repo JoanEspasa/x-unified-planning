@@ -6,7 +6,7 @@ Example:
 
 import os
 from typing import Dict, Optional
-from unified_planning.model import Action, Expression, Object, RangeVariable, Variable, Axiom
+from unified_planning.model import Object, IntVariable, Variable, Axiom
 from unified_planning.shortcuts import (
     ArrayType,
     Equals,
@@ -130,8 +130,8 @@ class PuzznicDomain(Domain):
         # --- Axioms ---
         axiom_falling = Axiom('axiom_falling')
         axiom_falling.set_head(falling_flag)
-        i = RangeVariable('i', 1, rows - 1)
-        j = RangeVariable('j', 0, columns - 1)
+        i = IntVariable('i', 1, rows - 1)
+        j = IntVariable('j', 0, columns - 1)
         axiom_falling.add_body_condition(
             Exists(And(Not(patterned[i - 1][j](F)), patterned[i][j](F)), i, j)
         )
@@ -139,14 +139,14 @@ class PuzznicDomain(Domain):
 
         axiom_matching = Axiom('axiom_matching')
         axiom_matching.set_head(matching_flag)
-        i = RangeVariable('i', 0, rows - 1)
-        j = RangeVariable('j', 0, columns - 2)
+        i = IntVariable('i', 0, rows - 1)
+        j = IntVariable('j', 0, columns - 2)
         p = Variable('p', Pattern)
         matching_horizontal = Exists(
             And(patterned[i][j](p), patterned[i][j + 1](p), Not(Equals(p, F))), i, j, p
         )
-        i = RangeVariable('i', 0, rows - 2)
-        j = RangeVariable('j', 0, columns - 1)
+        i = IntVariable('i', 0, rows - 2)
+        j = IntVariable('j', 0, columns - 1)
         p = Variable('p', Pattern)
         matching_vertical = Exists(
             And(patterned[i][j](p), patterned[i + 1][j](p), Not(patterned[i][j](F))), i, j, p
@@ -196,8 +196,8 @@ class PuzznicDomain(Domain):
         matching_blocks = InstantaneousAction('matching_blocks')
         matching_blocks.add_precondition(Not(falling_flag))
         matching_blocks.add_precondition(matching_flag)
-        i = RangeVariable('i', 0, rows - 1)
-        j = RangeVariable('j', 0, columns - 1)
+        i = IntVariable('i', 0, rows - 1)
+        j = IntVariable('j', 0, columns - 1)
         p = Variable('p', Pattern)
         matching_blocks.add_effect(patterned[i][j](F), True, condition=And(
             Not(Equals(p, F)),
