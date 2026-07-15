@@ -547,7 +547,10 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
             else:
                 new_problem.add_fluent(fluent, default_initial_value=default_value)
                 for f, v in problem.explicit_initial_values.items():
-                    if f.fluent() == fluent:
+                    base = f
+                    while base.is_array_index():
+                        base = base.arg(0)
+                    if base.fluent() == fluent:
                         new_problem.set_initial_value(fluent(*f.args), v)
 
     # ==================== AXIOMS TRANSFORMATION ====================
