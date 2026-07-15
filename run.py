@@ -268,6 +268,10 @@ def solve_problem(
                         plan = plan.replace_action_instances(result.map_back_action_instance)
                     print(plan)
                     print(f"Actions: {len(plan.actions)}")
+                    from unified_planning.shortcuts import PlanValidator
+                    with PlanValidator(problem_kind=problem.kind) as validator:
+                        result = validator.validate(problem, plan)
+                        print(result.status)
 
             signal.alarm(0)
             solving_time = time.time() - start_time
@@ -281,12 +285,19 @@ def solve_problem(
                 if result.plan is not None:
                     print("Solution found!\n")
                     plan = result.plan
+                    # Validate plan
+                    from unified_planning.shortcuts import PlanValidator
+                    with PlanValidator(problem_kind=problem.kind) as validator:
+                        is_valid = validator.validate(problem, plan)
+
                     for comp_result in reversed(compilation_results):
                         plan = plan.replace_action_instances(
                             comp_result.map_back_action_instance
                         )
                     print(plan)
                     print(f"\nActions: {len(plan.actions)}")
+                    if not is_valid:
+                        print("Plan is not valid!")
                 else:
                     print("No solution found")
                     print(f"Status: {result.status}")
