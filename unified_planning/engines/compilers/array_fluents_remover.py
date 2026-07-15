@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the arrays remover class."""
+"""This module defines the array fluents remover class."""
 
 
 from itertools import product
@@ -21,6 +21,7 @@ import unified_planning.engines as engines
 from unified_planning import model
 from unified_planning.engines.mixins.compiler import CompilationKind, CompilerMixin
 from unified_planning.engines.results import CompilerResult
+from unified_planning.exceptions import UPProblemDefinitionError
 from unified_planning.model import Problem, Action, ProblemKind, InstantaneousAction, FNode, Object, Parameter, Fluent, \
     Type, OperatorKind, Effect, Axiom
 from unified_planning.model.problem_kind_versioning import LATEST_PROBLEM_KIND_VERSION
@@ -28,25 +29,29 @@ from unified_planning.engines.compilers.utils import replace_action, updated_min
 from typing import Dict, List, Optional, Tuple, OrderedDict, Union
 from functools import partial
 from unified_planning.shortcuts import FALSE, UserType, And, TRUE
-import re
 
-class ArraysRemover(engines.engine.Engine, CompilerMixin):
+class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
     """
-    Removes arrays by instantiating them.
-    Also transforms array fluents into indexed fluents.
+    Array fluents remover class: this class offers the capability to transform
+    a :class:`~unified_planning.model.Problem` with array fluents into an equivalent
+    `Problem` without them, by replacing every array fluent with a set of indexed
+    fluents (one per array position) parameterized by an `Index` :class:`~unified_planning.model.Type`.
 
-    Transforms:
-        1. Array fluents -> indexed fluents with Index type (UserType)
+    Array accesses are resolved to the corresponding indexed fluent, and array-level
+    assignments and comparisons are expanded position by position. Out-of-bounds and
+    undefined-position accesses are handled according to the compiler's mode: in
+    `strict` mode they abort the compilation, while in `permissive` mode the
+    undefinedness is propagated following the operator semantics.
 
+    This `Compiler` supports only the `ARRAY_FLUENTS_REMOVING` :class:`~unified_planning.engines.CompilationKind`.
     """
 
     def __init__(self, mode: str = 'strict'):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.ARRAYS_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.ARRAY_FLUENTS_REMOVING)
         self.mode = mode
         self.domains: Dict[str, List[Tuple[int, ...]]] = {}
         self._index_objects_cache: Dict[int, Object] = {}
-        self._expression_cache: Dict[int, FNode] = {}
 
     @property
     def name(self):
@@ -119,11 +124,11 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= ArraysRemover.supported_kind()
+        return problem_kind <= ArrayFluentsRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.ARRAYS_REMOVING
+        return compilation_kind == CompilationKind.ARRAY_FLUENTS_REMOVING
 
     @staticmethod
     def resulting_problem_kind(
@@ -134,6 +139,18 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
         return new_kind
 
     # ==================== UTILITY METHODS ====================
+
+    def _undefined_access(self, node):
+        """
+        Handle an out-of-bounds or undefined array access according to the mode.
+        - strict: aborts compilation (out-of-bounds is not allowed).
+        - permissive: returns None, so undefinedness propagates following the operator semantics.
+        """
+        if self.mode == 'strict':
+            raise UPProblemDefinitionError(
+                f"Out-of-bounds or undefined array access '{node}' is not allowed in strict mode."
+            )
+        return None
 
     def _get_index_object(self, problem: Problem, n: int) -> Object:
         """Get or create index object i{n} with caching."""
@@ -151,25 +168,6 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
         self._index_objects_cache[n] = obj
         return obj
 
-    def _extract_array_indices(
-            self,
-            new_problem: Problem,
-            fluent_name: str
-    ) -> Union[List[Object], None]:
-        """Extract and evaluate array indices from fluent name."""
-        # Parse indices
-        indices = tuple(int(i) for i in re.findall(r'\[([0-9]+)\]', fluent_name))
-
-        # Check validity
-        fluent_base_name = fluent_name.split('[')[0]
-        valid_accesses = self.domains.get(fluent_base_name, [])
-
-        if indices not in valid_accesses:
-            return None
-
-        # Convert to objects (with cache)
-        return [self._get_index_object(new_problem, i) for i in indices]
-
     # ==================== EXPRESSION TRANSFORMATION ====================
 
     def _transform_fluent_exp(
@@ -179,12 +177,6 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
             node: FNode
     ) -> Union[FNode, None]:
         """Transform fluent expression, handling arrays."""
-        # Check cache
-        cache_key = id(node)
-        if cache_key in self._expression_cache:
-            return self._expression_cache[cache_key]
-
-        # Transform arguments first
         new_args = []
         for arg in node.args:
             transformed = self._transform_expression(old_problem, new_problem, arg)
@@ -192,52 +184,51 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
                 return None
             new_args.append(transformed)
 
-        fluent_base_name = node.fluent().name.split('[')[0]
-        old_fluent = old_problem.fluent(fluent_base_name)
-
-        # Array fluent: extract indices from name
-        if old_fluent.type.is_array_type():
-            new_fluent = new_problem.fluent(fluent_base_name)
-            index_params = self._extract_array_indices(new_problem, node.fluent().name)
-
-            if index_params is None:
-                return None
-
-            result = new_fluent(*(index_params + new_args))
-            self._expression_cache[cache_key] = result
-            return result
-
         # Regular fluent
         result = node.fluent()(*new_args)
-        self._expression_cache[cache_key] = result
         return result
 
-    def _transform_array_comparison(
-            self,
-            new_problem: Problem,
-            node: FNode,
-    ) -> FNode:
+    def _transform_array_comparison(self, old_problem, new_problem, node):
         """
-        Transform comparison with array fluent.
-        Example: board == [[1,2],[3,4]] → multiple comparisons
+        Transform a comparison between an array access and an array constant into a
+        conjunction of element-wise comparisons.
+        Example: puzzle[0] == [1,2,3,4]  ->  And(puzzle_idx(0,0)==1, ..., puzzle_idx(0,3)==4)
         """
-        # Identify fluent and value
-        fluent_arg, value_arg = (
-            (node.arg(0), node.arg(1))
-            if node.arg(1).is_constant()
-            else (node.arg(1), node.arg(0))
-        )
+        # Identify which side is the array access and which is the constant value
+        if node.arg(1).is_constant():
+            fluent_arg, value_arg = node.arg(0), node.arg(1)
+        else:
+            fluent_arg, value_arg = node.arg(1), node.arg(0)
 
-        fluent_base_name = fluent_arg.fluent().name.split('[')[0]
-        new_fluent = new_problem.fluent(fluent_base_name)
+        base, pre_indices = self._unpack_array_access(fluent_arg)
+        old_fluent = base.fluent()
+        new_fluent = new_problem.fluent(old_fluent.name)
 
-        # Generate comparison for each position
+        # Out-of-bounds / undefined access: no valid position matches the fixed indices -> undefined
+        pre = tuple(pre_indices)
+        matching = [pos for pos in self.domains[new_fluent.name] if pos[:len(pre)] == pre]
+        if not matching:
+            return self._undefined_access(node)
+
+        # Parameters of the base fluent (e.g. P in grid(P)), transformed
+        new_params = [self._transform_expression(old_problem, new_problem, a) for a in base.args]
+
         em = new_problem.environment.expression_manager
         comparisons = []
 
-        for pos, val in self._get_new_fluent_value(new_problem, new_fluent, fluent_arg, value_arg).items():
-            comparison = em.create_node(node.node_type, (pos, val))
-            comparisons.append(comparison.simplify())
+        # Expand over the positions still open under the fixed pre_indices
+        pre = tuple(pre_indices)
+        post_indices = [
+            pos[len(pre):]
+            for pos in self.domains[new_fluent.name]
+            if pos[:len(pre)] == pre
+        ]
+        for post_idx in post_indices:
+            full_idx = list(pre) + list(post_idx)
+            index_objs = [self._get_index_object(new_problem, i) for i in full_idx]
+            cell = new_fluent(*(index_objs + new_params))
+            element_value = self._get_element_value(value_arg, post_idx)
+            comparisons.append(em.create_node(node.node_type, (cell, element_value)).simplify())
 
         return And(comparisons).simplify()
 
@@ -266,14 +257,29 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
             self._transform_expression(old_problem, new_problem, arg)
             for arg in node.args
         ]
-
         new_args = self._handle_none_args(node.node_type, new_args)
-
         if new_args is None:
             return None
 
         em = old_problem.environment.expression_manager
         return em.create_node(node.node_type, tuple(new_args), tuple(node.variables())).simplify()
+
+    def _transform_array_index(self, old_problem, new_problem, node):
+        """Resolve an array access grid(P)[i][j] to its indexed fluent grid_indexed(i, j, P)."""
+        base, indices = self._unpack_array_access(node)
+        # base is the FluentExp (e.g. grid(P)); base.fluent() is the array fluent
+        old_fluent = base.fluent()
+        new_fluent = new_problem.fluent(old_fluent.name)
+
+        # Validate the access against the valid positions
+        valid_positions = self.domains.get(new_fluent.name, [])
+        if tuple(indices) not in valid_positions:
+            return self._undefined_access(node)
+
+        # Transform the fluent parameters (e.g. P) and build the indexed fluent
+        index_objs = [self._get_index_object(new_problem, i) for i in indices]
+        new_params = [self._transform_expression(old_problem, new_problem, a) for a in base.args]
+        return new_fluent(*(index_objs + new_params))
 
     def _transform_expression(
             self,
@@ -282,17 +288,17 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
             node: FNode
     ) -> Union[FNode, None]:
         """Transform expression by substituting array accesses."""
-        print("ARRAYS_REMOVER rep:", repr(node), "| node_type:", node.node_type)
-
         if node.is_constant() or node.is_variable_exp() or node.is_timing_exp() or node.is_parameter_exp():
             return node
         if node.is_fluent_exp():
             return self._transform_fluent_exp(old_problem, new_problem, node)
         if node.is_forall() or node.is_exists():
             return self._transform_quantifier(old_problem, new_problem, node)
+        if node.is_array_index():
+            return self._transform_array_index(old_problem, new_problem, node)
         # Special case: array fluent comparisons
         if node.args and node.arg(0).type.is_array_type():
-            return self._transform_array_comparison(new_problem, node)
+            return self._transform_array_comparison(old_problem, new_problem, node)
 
         # Generic recursive transformation
         em = old_problem.environment.expression_manager
@@ -300,7 +306,9 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
             self._transform_expression(old_problem, new_problem, arg)
             for arg in node.args
         ]
+        print("new_args:", new_args)
         new_args = self._handle_none_args(node.node_type, new_args)
+        print("new_args after handle_none:", new_args)
         if new_args is None or not new_args:
             return None
         return em.create_node(node.node_type, tuple(new_args)).simplify()
@@ -455,39 +463,52 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
             f: FNode,
             v: FNode
     ) -> Dict[FNode, FNode]:
-        """Convert array assignment to indexed fluent assignments."""
+        """Convert an array assignment to the corresponding indexed-fluent assignments."""
         # Extract pre-indices from fluent name
-        pre_indices = tuple(int(i) for i in re.findall(r'\[([0-9]+)\]', f.fluent().name))
+        base, pre_indices = self._unpack_array_access(f)
+        old_params = list(base.args)
         new_equalities = {}
-        old_params = list(f.args)
 
-        if pre_indices:
-            # Partial array assignment
-            new_params = [self._get_index_object(new_problem, i) for i in pre_indices] + old_params
-
-            if not f.fluent().type.is_array_type():
-                # Single element
-                new_equalities[new_fluent(*new_params)] = v
-            else:
-                # Sub-array
-                post_indices = [
-                    pos[len(pre_indices):]
-                    for pos in self.domains[new_fluent.name]
-                    if pos[:len(pre_indices)] == pre_indices
-                ]
-
-                for post_idx in post_indices:
-                    full_params = new_params + [self._get_index_object(new_problem, i) for i in post_idx]
-                    element_value = self._get_element_value(v, post_idx)
-                    new_equalities[new_fluent(*full_params)] = element_value
+        if not f.type.is_array_type():
+           # Single element: grid(P)[0][1] := value
+           if tuple(pre_indices) not in self.domains[new_fluent.name]:
+               self._undefined_access(f)  # strict: raises; permissive: returns None
+           else:
+               index_objs = [self._get_index_object(new_problem, i) for i in pre_indices]
+               new_equalities[new_fluent(*(index_objs + old_params))] = v
         else:
-            # Full array assignment
-            for pos in self.domains[new_fluent.name]:
-                element_value = self._get_element_value(v, pos)
-                params = [self._get_index_object(new_problem, i) for i in pos] + old_params
-                new_equalities[new_fluent(*params)] = element_value
+            # Full or partial array: expand over the positions
+            # pre_indices are the already-fixed dimensions (empty for a full array).
+            pre = tuple(pre_indices)
+            post_indices = [
+                pos[len(pre):]
+                for pos in self.domains[new_fluent.name]
+                if pos[:len(pre)] == pre
+            ]
+            for post_idx in post_indices:
+                full_idx = list(pre) + list(post_idx)
+                index_objs = [self._get_index_object(new_problem, i) for i in full_idx]
+                element_value = self._get_element_value(v, post_idx)
+                new_equalities[new_fluent(*(index_objs + old_params))] = element_value
 
         return new_equalities
+
+    def _unpack_array_access(self, node):
+        """
+        Given a (possibly nested) ARRAY_INDEX node, return:
+        - the base FluentExp (e.g. grid(B))
+        - the list of index values (ints), outermost-last
+
+        E.g. grid(B)[1][6] -> (grid(B), [1, 6])
+        """
+        indices = []
+        while node.is_array_index():
+            idx = node.arg(1).simplify()
+            assert idx.is_int_constant(), f"Array index is not constant: {node.arg(1)}"
+            indices.append(idx.constant_value())
+            node = node.arg(0)
+        indices.reverse()  # we collected outermost-first; reverse to get [row, col]
+        return node, indices  # node is now the base FluentExp, e.g. grid(B)
 
     def _add_array_as_indexed_fluent(self, problem, new_problem, fluent, default_value, index_ut):
         """Transform array fluent into indexed fluent."""
@@ -508,9 +529,10 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
 
         # Set initial values
         for f, v in problem.explicit_initial_values.items():
-            fluent_name = f.fluent().name.split('[')[0]
-
-            if f.fluent() == fluent or fluent_name == fluent.name:
+            base = f
+            while base.is_array_index():
+                base = base.arg(0)
+            if base.fluent() == fluent:
                 new_equalities = self._get_new_fluent_value(new_problem, new_fluent, f, v)
                 for nf, nv in new_equalities.items():
                     new_problem.set_initial_value(nf, nv)
@@ -566,8 +588,10 @@ class ArraysRemover(engines.engine.Engine, CompilerMixin):
         """Transform all goals."""
         for goal in problem.goals:
             new_goal = self._transform_expression(problem, new_problem, goal)
-            if new_goal is not None:
-                new_problem.add_goal(new_goal)
+            if new_goal is None:
+                # An undefined goal cannot be satisfied: the problem becomes unsolvable
+                new_goal = FALSE()
+            new_problem.add_goal(new_goal)
 
     # ==================== MAIN COMPILATION ====================
 

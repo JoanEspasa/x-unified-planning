@@ -42,44 +42,44 @@ from unified_planning.shortcuts import (
 COMPILATION_PIPELINES = {
     "up": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        #CompilationKind.ARRAYS_REMOVING,
+        CompilationKind.ARRAY_FLUENTS_REMOVING,
         #CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "int": [  # numeric
         #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        #CompilationKind.ARRAYS_REMOVING,
+        #CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.BOUNDED_TYPES_REMOVING
     ],
     "uti": [
         #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        #CompilationKind.ARRAYS_REMOVING,
+        #CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.GROUNDING,
         CompilationKind.INTEGERS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "log": [
         #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        #CompilationKind.ARRAYS_REMOVING,
+        #CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.GROUNDING,
         CompilationKind.LOGARITHMIC_REMOVING,
         #CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "c": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        CompilationKind.ARRAYS_REMOVING,
+        CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.COUNT_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "ci": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        CompilationKind.ARRAYS_REMOVING,
+        CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.COUNT_INT_REMOVING,
         CompilationKind.INTEGERS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "cin": [  # numeric
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
-        CompilationKind.ARRAYS_REMOVING,
+        CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.COUNT_INT_REMOVING,
     ],
     "sc": [
@@ -178,7 +178,7 @@ def compile_problem(
         for ck in compilation_kinds:
             print(f"Compiling {ck}")
             params = {}
-            if ck == CompilationKind.ARRAYS_REMOVING:
+            if ck == CompilationKind.ARRAY_FLUENTS_REMOVING:
                 params = {"mode": "permissive"}
 
             with Compiler(problem_kind=problem.kind, compilation_kind=ck, params=params) as compiler:
