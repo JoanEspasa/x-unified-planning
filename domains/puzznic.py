@@ -115,12 +115,12 @@ class PuzznicDomain(Domain):
             pattern_obj = pattern_by_symbol[p]
             if not problem.has_object(p):
                 problem.add_object(pattern_obj)
-            problem.set_initial_value(patterned[r][c](pattern_obj), True)
+            problem.set_initial_value(patterned(pattern_obj)[r][c], True)
 
         for r in range(rows):
             for c in range(columns):
                 if (r, c) not in initial_state and (r, c) not in undefined:
-                    problem.set_initial_value(patterned[r][c](F), True)
+                    problem.set_initial_value(patterned(F)[r][c], True)
 
         falling_flag = Fluent('falling_flag', DerivedBoolType())
         matching_flag = Fluent('matching_flag', DerivedBoolType())
@@ -133,7 +133,7 @@ class PuzznicDomain(Domain):
         i = IntVariable('i', 1, rows - 1)
         j = IntVariable('j', 0, columns - 1)
         axiom_falling.add_body_condition(
-            Exists(And(Not(patterned[i - 1][j](F)), patterned[i][j](F)), i, j)
+            Exists(And(Not(patterned(F)[i - 1][j]), patterned(F)[i][j]), i, j)
         )
         problem.add_axiom(axiom_falling)
 
@@ -143,13 +143,13 @@ class PuzznicDomain(Domain):
         j = IntVariable('j', 0, columns - 2)
         p = Variable('p', Pattern)
         matching_horizontal = Exists(
-            And(patterned[i][j](p), patterned[i][j + 1](p), Not(Equals(p, F))), i, j, p
+            And(patterned(p)[i][j], patterned(p)[i][j + 1], Not(Equals(p, F))), i, j, p
         )
         i = IntVariable('i', 0, rows - 2)
         j = IntVariable('j', 0, columns - 1)
         p = Variable('p', Pattern)
         matching_vertical = Exists(
-            And(patterned[i][j](p), patterned[i + 1][j](p), Not(patterned[i][j](F))), i, j, p
+            And(patterned(p)[i][j], patterned(p)[i + 1][j], Not(patterned(F)[i][j])), i, j, p
         )
         axiom_matching.add_body_condition(Or(matching_horizontal, matching_vertical))
         problem.add_axiom(axiom_matching)
@@ -160,38 +160,38 @@ class PuzznicDomain(Domain):
         p, r, c = move_block_right.parameter('p'), move_block_right.parameter('r'), move_block_right.parameter('c')
         move_block_right.add_precondition(Not(falling_flag))
         move_block_right.add_precondition(Not(matching_flag))
-        move_block_right.add_precondition(patterned[r][c](p))
+        move_block_right.add_precondition(patterned(p)[r][c])
         move_block_right.add_precondition(Not(Equals(p, F)))
-        move_block_right.add_precondition(patterned[r][c + 1](F))
-        move_block_right.add_effect(patterned[r][c](F), True)
-        move_block_right.add_effect(patterned[r][c + 1](p), True)
-        move_block_right.add_effect(patterned[r][c](p), False)
-        move_block_right.add_effect(patterned[r][c + 1](F), Or(patterned[r][c](p), patterned[r][c + 1](p)))
+        move_block_right.add_precondition(patterned(F)[r][c + 1])
+        move_block_right.add_effect(patterned(F)[r][c], True)
+        move_block_right.add_effect(patterned(p)[r][c + 1], True)
+        move_block_right.add_effect(patterned(p)[r][c], False)
+        move_block_right.add_effect(patterned(F)[r][c + 1], Or(patterned(p)[r][c], patterned(p)[r][c + 1]))
 
         move_block_left = InstantaneousAction('move_block_left', p=Pattern,
                                               r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         p, r, c = move_block_left.parameter('p'), move_block_left.parameter('r'), move_block_left.parameter('c')
         move_block_left.add_precondition(Not(falling_flag))
         move_block_left.add_precondition(Not(matching_flag))
-        move_block_left.add_precondition(patterned[r][c](p))
+        move_block_left.add_precondition(patterned(p)[r][c])
         move_block_left.add_precondition(Not(Equals(p, F)))
-        move_block_left.add_precondition(patterned[r][c - 1](F))
-        move_block_left.add_effect(patterned[r][c](F), True)
-        move_block_left.add_effect(patterned[r][c - 1](p), True)
-        move_block_left.add_effect(patterned[r][c](p), False)
-        move_block_left.add_effect(patterned[r][c - 1](F), False)
+        move_block_left.add_precondition(patterned(F)[r][c - 1])
+        move_block_left.add_effect(patterned(F)[r][c], True)
+        move_block_left.add_effect(patterned(p)[r][c - 1], True)
+        move_block_left.add_effect(patterned(p)[r][c], False)
+        move_block_left.add_effect(patterned(F)[r][c - 1], False)
 
         fall_block = InstantaneousAction('fall_block', p=Pattern,
                                          r=IntType(0, rows - 2), c=IntType(0, columns - 1))
         p, r, c = fall_block.parameter('p'), fall_block.parameter('r'), fall_block.parameter('c')
         fall_block.add_precondition(falling_flag)
-        fall_block.add_precondition(patterned[r][c](p))
+        fall_block.add_precondition(patterned(p)[r][c])
         fall_block.add_precondition(Not(Equals(p, F)))
-        fall_block.add_precondition(patterned[r + 1][c](F))
-        fall_block.add_effect(patterned[r][c](F), True)
-        fall_block.add_effect(patterned[r + 1][c](p), True)
-        fall_block.add_effect(patterned[r][c](p), False)
-        fall_block.add_effect(patterned[r + 1][c](F), False)
+        fall_block.add_precondition(patterned(F)[r + 1][c])
+        fall_block.add_effect(patterned(F)[r][c], True)
+        fall_block.add_effect(patterned(p)[r + 1][c], True)
+        fall_block.add_effect(patterned(p)[r][c], False)
+        fall_block.add_effect(patterned(F)[r + 1][c], False)
 
         matching_blocks = InstantaneousAction('matching_blocks')
         matching_blocks.add_precondition(Not(falling_flag))
@@ -199,11 +199,11 @@ class PuzznicDomain(Domain):
         i = IntVariable('i', 0, rows - 1)
         j = IntVariable('j', 0, columns - 1)
         p = Variable('p', Pattern)
-        matching_blocks.add_effect(patterned[i][j](F), True, condition=And(
+        matching_blocks.add_effect(patterned(F)[i][j], True, condition=And(
             Not(Equals(p, F)),
-            patterned[i][j](p),
-            Or(patterned[i + 1][j](p), patterned[i - 1][j](p),
-               patterned[i][j + 1](p), patterned[i][j - 1](p))
+            patterned(p)[i][j],
+            Or(patterned(p)[i + 1][j], patterned(p)[i - 1][j],
+               patterned(p)[i][j + 1], patterned(p)[i][j - 1])
         ), forall=[i, j, p])
 
         problem.add_actions([move_block_right, move_block_left, fall_block, matching_blocks])
@@ -212,7 +212,7 @@ class PuzznicDomain(Domain):
         for i in range(rows):
             for j in range(columns):
                 if (i, j) not in undefined:
-                    problem.add_goal(patterned[i][j](F))
+                    problem.add_goal(patterned(F)[i][j])
 
         # --- Metric ---
         costs: Dict = {
