@@ -306,9 +306,7 @@ class ArrayFluentsRemover(engines.engine.Engine, CompilerMixin):
             self._transform_expression(old_problem, new_problem, arg)
             for arg in node.args
         ]
-        print("new_args:", new_args)
         new_args = self._handle_none_args(node.node_type, new_args)
-        print("new_args after handle_none:", new_args)
         if new_args is None or not new_args:
             return None
         return em.create_node(node.node_type, tuple(new_args)).simplify()
