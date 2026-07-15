@@ -968,9 +968,9 @@ class _KindFactory:
                     self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
             else:
                 self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
-                if any(f in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_NUMERIC_ASSIGNMENTS")
-                if any(f not in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_NUMERIC_ASSIGNMENTS")
         elif e.is_decrease():
             self.kind.set_effects_kind("DECREASE_EFFECTS")
@@ -990,9 +990,9 @@ class _KindFactory:
                     self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
             else:
                 self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
-                if any(f in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_NUMERIC_ASSIGNMENTS")
-                if any(f not in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_NUMERIC_ASSIGNMENTS")
         elif e.is_assignment():
             value_type = value.type
@@ -1012,27 +1012,27 @@ class _KindFactory:
                 ):
                     self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
 
-                if any(f in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_NUMERIC_ASSIGNMENTS")
-                if any(f not in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_NUMERIC_ASSIGNMENTS")
             elif value.type.is_bool_type():
                 if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
                     self.kind.set_effects_kind(
                         "INTERPRETED_FUNCTIONS_IN_BOOLEAN_ASSIGNMENTS"
                     )
-                if any(f in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_BOOLEAN_ASSIGNMENTS")
-                if any(f not in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_BOOLEAN_ASSIGNMENTS")
             elif value.type.is_user_type():
                 if OperatorKind.INTERPRETED_FUNCTION_EXP in ops:
                     self.kind.set_effects_kind(
                         "INTERPRETED_FUNCTIONS_IN_OBJECT_ASSIGNMENTS"
                     )
-                if any(f in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("STATIC_FLUENTS_IN_OBJECT_ASSIGNMENTS")
-                if any(f not in self.static_fluents for f in fluents_in_value):
+                if any(f.fluent() not in self.static_fluents for f in fluents_in_value):
                     self.kind.set_effects_kind("FLUENTS_IN_OBJECT_ASSIGNMENTS")
         elif e.is_continuous_increase():
             self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")
@@ -1061,8 +1061,8 @@ class _KindFactory:
         if OperatorKind.OR in ops or OperatorKind.IMPLIES in ops:
             self.kind.set_conditions_kind("DISJUNCTIVE_CONDITIONS")
         if OperatorKind.EXISTS in ops:
-            if self._has_range_vars(exp):
-                self.kind.set_conditions_kind("RANGE_VARIABLES")
+            if self._has_int_vars(exp):
+                self.kind.set_conditions_kind("INT_VARIABLES")
             self.kind.set_conditions_kind("EXISTENTIAL_CONDITIONS")
         if OperatorKind.FORALL in ops:
             if self._has_int_vars(exp):
