@@ -35,7 +35,7 @@ class CompilationKind(Enum):
     QUANTIFIERS_REMOVING = auto()
     COUNT_REMOVING = auto()
     COUNT_INT_REMOVING = auto()
-    ARRAYS_REMOVING = auto()
+    ARRAY_FLUENTS_REMOVING = auto()
     SETS_REMOVING = auto()
     CONDITIONS_TO_PREDICATES_SIMPLIFIER = auto()
     INT_PARAMETERS_AND_VARIABLES_REMOVING = auto()

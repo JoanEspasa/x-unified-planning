@@ -109,9 +109,9 @@ DEFAULT_ENGINES = {
         "unified_planning.engines.compilers.count_int_remover",
         "CountIntRemover",
     ),
-    "up_arrays_remover": (
-        "unified_planning.engines.compilers.arrays_remover",
-        "ArraysRemover",
+    "up_array_fluents_remover": (
+        "unified_planning.engines.compilers.array_fluents_remover",
+        "ArrayFluentsRemover",
     ),
     "up_logarithmic_remover": (
         "unified_planning.engines.compilers.logarithmic_remover",
@@ -208,7 +208,7 @@ DEFAULT_ENGINES_PREFERENCE_LIST = [
     "up_quantifiers_remover",
     "up_count_remover",
     "up_count_int_remover",
-    "up_arrays_remover",
+    "up_array_fluents_remover",
     "up_logarithmic_remover",
     "up_sets_remover",
     "up_conditions_to_predicates_simplifier",

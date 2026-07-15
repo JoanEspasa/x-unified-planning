@@ -20,6 +20,7 @@ import unified_planning.model.fluent
 import unified_planning.model.interpreted_function
 import collections
 from unified_planning.environment import Environment
+from unified_planning.exceptions import UPProblemDefinitionError
 from unified_planning.model.operators import OperatorKind
 from typing import Dict, List, Set, Union
 from fractions import Fraction
@@ -144,6 +145,15 @@ class FNode(object):
 
     def __getitem__(self, index):
         assert self.type.is_array_type(), "This expression has no array type"
+        idx = self.environment.expression_manager.auto_promote(index)[0]
+        simplified = idx.simplify()
+        if simplified.is_int_constant():
+            i = simplified.constant_value()
+            size = self.type.size
+            if not (0 <= i < size):
+                raise UPProblemDefinitionError(
+                    f"Array index {i} is out of bounds for array of size {size}."
+                )
         return self.environment.expression_manager.ArrayIndex(self, index)
 
     def base_fluent(self) -> "FNode":

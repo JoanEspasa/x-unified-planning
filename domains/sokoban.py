@@ -8,7 +8,7 @@ Example:
 """
 import os
 from typing import Dict, Optional
-from unified_planning.model import Action, Expression, Object
+from unified_planning.model import Action, Expression, Object, IntVariable, Variable
 from unified_planning.shortcuts import (
     ArrayType,
     Fluent,
@@ -16,7 +16,7 @@ from unified_planning.shortcuts import (
     IntType,
     InstantaneousAction,
     MinimizeActionCosts,
-    Problem, UserType, Not,
+    Problem, UserType, Not, Forall, And, Equals, BoolType,
 )
 
 from domains.base import Domain
@@ -130,95 +130,95 @@ class SokobanDomain(Domain):
         pattern_by_symbol = {'P': P, 'B': B}
         problem.add_objects([P, B])
 
-        grid = Fluent('grid', ArrayType(rows, ArrayType(columns)), p=Pattern, undefined_positions=undefined_positions)
+        grid = Fluent('grid', ArrayType(rows, ArrayType(columns, BoolType())), p=Pattern, undefined_positions=undefined_positions)
         problem.add_fluent(grid, default_initial_value=False)
         for (r, c), v in initial_state.items():
-            problem.set_initial_value(grid[r][c](pattern_by_symbol[v]), True)
-
+            problem.set_initial_value(grid(pattern_by_symbol[v])[r][c], True)
+        problem.set_initial_value(grid(P)[0][0], True)
         # --- Actions ---
         move_right = InstantaneousAction('move_right', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = move_right.parameter('r')
         c = move_right.parameter('c')
-        move_right.add_precondition(grid[r][c](P))
-        move_right.add_precondition(Not(grid[r][c + 1](P)))
-        move_right.add_precondition(Not(grid[r][c + 1](B)))
-        move_right.add_effect(grid[r][c + 1](P), True)
-        move_right.add_effect(grid[r][c](P), False)
+        move_right.add_precondition(grid(P)[r][c])
+        move_right.add_precondition(Not(grid(P)[r][c + 1]))
+        move_right.add_precondition(Not(grid(B)[r][c + 1]))
+        move_right.add_effect(grid(P)[r][c + 1], True)
+        move_right.add_effect(grid(P)[r][c], False)
 
         move_left = InstantaneousAction('move_left', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = move_left.parameter('r')
         c = move_left.parameter('c')
-        move_left.add_precondition(grid[r][c](P))
-        move_left.add_precondition(Not(grid[r][c - 1](P)))
-        move_left.add_precondition(Not(grid[r][c - 1](B)))
-        move_left.add_effect(grid[r][c - 1](P), True)
-        move_left.add_effect(grid[r][c](P), False)
+        move_left.add_precondition(grid(P)[r][c])
+        move_left.add_precondition(Not(grid(P)[r][c - 1]))
+        move_left.add_precondition(Not(grid(B)[r][c - 1]))
+        move_left.add_effect(grid(P)[r][c - 1], True)
+        move_left.add_effect(grid(P)[r][c], False)
 
         move_up = InstantaneousAction('move_up', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = move_up.parameter('r')
         c = move_up.parameter('c')
-        move_up.add_precondition(grid[r][c](P))
-        move_up.add_precondition(Not(grid[r - 1][c](P)))
-        move_up.add_precondition(Not(grid[r - 1][c](B)))
-        move_up.add_effect(grid[r - 1][c](P), True)
-        move_up.add_effect(grid[r][c](P), False)
+        move_up.add_precondition(grid(P)[r][c])
+        move_up.add_precondition(Not(grid(P)[r - 1][c]))
+        move_up.add_precondition(Not(grid(B)[r - 1][c]))
+        move_up.add_effect(grid(P)[r - 1][c], True)
+        move_up.add_effect(grid(P)[r][c], False)
 
         move_down = InstantaneousAction('move_down', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = move_down.parameter('r')
         c = move_down.parameter('c')
-        move_down.add_precondition(grid[r][c](P))
-        move_down.add_precondition(Not(grid[r + 1][c](P)))
-        move_down.add_precondition(Not(grid[r + 1][c](B)))
-        move_down.add_effect(grid[r + 1][c](P), True)
-        move_down.add_effect(grid[r][c](P), False)
+        move_down.add_precondition(grid(P)[r][c])
+        move_down.add_precondition(Not(grid(P)[r + 1][c]))
+        move_down.add_precondition(Not(grid(B)[r + 1][c]))
+        move_down.add_effect(grid(P)[r + 1][c], True)
+        move_down.add_effect(grid(P)[r][c], False)
 
         push_box_right = InstantaneousAction('push_box_right', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = push_box_right.parameter('r')
         c = push_box_right.parameter('c')
-        push_box_right.add_precondition(grid[r][c](P))
-        push_box_right.add_precondition(grid[r][c + 1](B))
-        push_box_right.add_precondition(Not(grid[r][c + 2](P)))
-        push_box_right.add_precondition(Not(grid[r][c + 2](B)))
-        push_box_right.add_effect(grid[r][c + 1](P), True)
-        push_box_right.add_effect(grid[r][c + 2](B), True)
-        push_box_right.add_effect(grid[r][c](P), False)
-        push_box_right.add_effect(grid[r][c + 1](B), False)
+        push_box_right.add_precondition(grid(P)[r][c])
+        push_box_right.add_precondition(grid(B)[r][c + 1])
+        push_box_right.add_precondition(Not(grid(P)[r][c + 2]))
+        push_box_right.add_precondition(Not(grid(B)[r][c + 2]))
+        push_box_right.add_effect(grid(P)[r][c + 1], True)
+        push_box_right.add_effect(grid(B)[r][c + 2], True)
+        push_box_right.add_effect(grid(P)[r][c], False)
+        push_box_right.add_effect(grid(B)[r][c + 1], False)
 
         push_box_left = InstantaneousAction('push_box_left', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = push_box_left.parameter('r')
         c = push_box_left.parameter('c')
-        push_box_left.add_precondition(grid[r][c](P))
-        push_box_left.add_precondition(grid[r][c - 1](B))
-        push_box_left.add_precondition(Not(grid[r][c - 2](P)))
-        push_box_left.add_precondition(Not(grid[r][c - 2](B)))
-        push_box_left.add_effect(grid[r][c - 1](P), True)
-        push_box_left.add_effect(grid[r][c - 2](B), True)
-        push_box_left.add_effect(grid[r][c](P), False)
-        push_box_left.add_effect(grid[r][c - 1](B), False)
+        push_box_left.add_precondition(grid(P)[r][c])
+        push_box_left.add_precondition(grid(B)[r][c - 1])
+        push_box_left.add_precondition(Not(grid(P)[r][c - 2]))
+        push_box_left.add_precondition(Not(grid(B)[r][c - 2]))
+        push_box_left.add_effect(grid(P)[r][c - 1], True)
+        push_box_left.add_effect(grid(B)[r][c - 2], True)
+        push_box_left.add_effect(grid(P)[r][c], False)
+        push_box_left.add_effect(grid(B)[r][c - 1], False)
 
         push_box_up = InstantaneousAction('push_box_up', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = push_box_up.parameter('r')
         c = push_box_up.parameter('c')
-        push_box_up.add_precondition(grid[r][c](P))
-        push_box_up.add_precondition(grid[r - 1][c](B))
-        push_box_up.add_precondition(Not(grid[r - 2][c](P)))
-        push_box_up.add_precondition(Not(grid[r - 2][c](B)))
-        push_box_up.add_effect(grid[r - 1][c](P), True)
-        push_box_up.add_effect(grid[r - 2][c](B), True)
-        push_box_up.add_effect(grid[r][c](P), False)
-        push_box_up.add_effect(grid[r - 1][c](B), False)
+        push_box_up.add_precondition(grid(P)[r][c])
+        push_box_up.add_precondition(grid(B)[r - 1][c])
+        push_box_up.add_precondition(Not(grid(P)[r - 2][c]))
+        push_box_up.add_precondition(Not(grid(B)[r - 2][c]))
+        push_box_up.add_effect(grid(P)[r - 1][c], True)
+        push_box_up.add_effect(grid(B)[r - 2][c], True)
+        push_box_up.add_effect(grid(P)[r][c], False)
+        push_box_up.add_effect(grid(B)[r - 1][c], False)
 
         push_box_down = InstantaneousAction('push_box_down', r=IntType(0, rows - 1), c=IntType(0, columns - 1))
         r = push_box_down.parameter('r')
         c = push_box_down.parameter('c')
-        push_box_down.add_precondition(grid[r][c](P))
-        push_box_down.add_precondition(grid[r + 1][c](B))
-        push_box_down.add_precondition(Not(grid[r + 2][c](P)))
-        push_box_down.add_precondition(Not(grid[r + 2][c](B)))
-        push_box_down.add_effect(grid[r + 1][c](P), True)
-        push_box_down.add_effect(grid[r + 2][c](B), True)
-        push_box_down.add_effect(grid[r][c](P), False)
-        push_box_down.add_effect(grid[r + 1][c](B), False)
+        push_box_down.add_precondition(grid(P)[r][c])
+        push_box_down.add_precondition(grid(B)[r + 1][c])
+        push_box_down.add_precondition(Not(grid(P)[r + 2][c]))
+        push_box_down.add_precondition(Not(grid(B)[r + 2][c]))
+        push_box_down.add_effect(grid(P)[r + 1][c], True)
+        push_box_down.add_effect(grid(B)[r + 2][c], True)
+        push_box_down.add_effect(grid(P)[r][c], False)
+        push_box_down.add_effect(grid(B)[r + 1][c], False)
 
         problem.add_actions([
             move_right, move_left, move_up, move_down, push_box_right, push_box_left, push_box_up, push_box_down
@@ -226,7 +226,7 @@ class SokobanDomain(Domain):
 
         # --- Goals ---
         for r, c in goal_positions:
-            problem.add_goal(grid[r][c](B))
+            problem.add_goal(grid(B)[r][c])
 
         # --- Metric ---
         costs: Dict = {
