@@ -38,7 +38,7 @@ from unified_planning.shortcuts import (
 )
 
 # Each key maps a short alias to an ordered list of compilation steps.
-# Pipelines marked "numeric" keep integer fluents (no INTEGERS_REMOVING).
+# Pipelines marked "numeric" keep integer fluents.
 COMPILATION_PIPELINES = {
     "up": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
@@ -54,7 +54,7 @@ COMPILATION_PIPELINES = {
         #CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         #CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.GROUNDING,
-        CompilationKind.INTEGERS_REMOVING,
+        CompilationKind.INTEGER_FLUENTS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "log": [
@@ -67,35 +67,35 @@ COMPILATION_PIPELINES = {
     "c": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAY_FLUENTS_REMOVING,
-        CompilationKind.COUNT_REMOVING,
+        CompilationKind.COUNT_TO_BOOL_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "ci": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAY_FLUENTS_REMOVING,
-        CompilationKind.COUNT_INT_REMOVING,
-        CompilationKind.INTEGERS_REMOVING,
+        CompilationKind.COUNT_TO_INT_REMOVING,
+        #CompilationKind.INTEGER_FLUENTS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "cin": [  # numeric
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAY_FLUENTS_REMOVING,
-        CompilationKind.COUNT_INT_REMOVING,
+        CompilationKind.COUNT_TO_INT_REMOVING,
     ],
     "sc": [
-        CompilationKind.SETS_REMOVING,
-        CompilationKind.COUNT_REMOVING,
-        # CompilationKind.USERTYPE_FLUENTS_REMOVING,
+        CompilationKind.SET_FLUENTS_REMOVING,
+        #CompilationKind.COUNT_TO_BOOL_REMOVING,
+        CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "sci": [
-        CompilationKind.SETS_REMOVING,
-        CompilationKind.COUNT_INT_REMOVING,
-        CompilationKind.INTEGERS_REMOVING,
+        CompilationKind.SET_FLUENTS_REMOVING,
+        #CompilationKind.COUNT_TO_INT_REMOVING,
+        #CompilationKind.INTEGER_FLUENTS_REMOVING,
         # CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "scin": [  # numeric
-        CompilationKind.SETS_REMOVING,
-        CompilationKind.COUNT_INT_REMOVING,
+        CompilationKind.SET_FLUENTS_REMOVING,
+        CompilationKind.COUNT_TO_INT_REMOVING,
         # CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "none": [],
@@ -268,6 +268,10 @@ def solve_problem(
                         plan = plan.replace_action_instances(result.map_back_action_instance)
                     print(plan)
                     print(f"Actions: {len(plan.actions)}")
+                    from unified_planning.shortcuts import PlanValidator
+                    with PlanValidator(problem_kind=problem.kind) as validator:
+                        result = validator.validate(problem, plan)
+                        print(result.status)
 
             signal.alarm(0)
             solving_time = time.time() - start_time
@@ -281,12 +285,19 @@ def solve_problem(
                 if result.plan is not None:
                     print("Solution found!\n")
                     plan = result.plan
+                    # Validate plan
+                    from unified_planning.shortcuts import PlanValidator
+                    with PlanValidator(problem_kind=problem.kind) as validator:
+                        is_valid = validator.validate(problem, plan)
+
                     for comp_result in reversed(compilation_results):
                         plan = plan.replace_action_instances(
                             comp_result.map_back_action_instance
                         )
                     print(plan)
                     print(f"\nActions: {len(plan.actions)}")
+                    if not is_valid:
+                        print("Plan is not valid!")
                 else:
                     print("No solution found")
                     print(f"Status: {result.status}")

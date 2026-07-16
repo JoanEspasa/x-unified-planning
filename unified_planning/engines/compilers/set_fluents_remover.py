@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the sets remover class."""
+"""This module defines the set fluents remover class."""
 import itertools
 from itertools import product
 import unified_planning as up
@@ -21,22 +21,15 @@ from unified_planning import model
 from unified_planning.engines.mixins.compiler import CompilationKind, CompilerMixin
 from unified_planning.engines.results import CompilerResult
 from unified_planning.exceptions import UPProblemDefinitionError
-from unified_planning.model import (
-    Problem,
-    Action,
-    ProblemKind, Fluent, Effect, FNode, Parameter,
-)
+from unified_planning.model import Problem, Action, ProblemKind, Fluent, Effect, FNode, InstantaneousAction
 from unified_planning.model.problem_kind_versioning import LATEST_PROBLEM_KIND_VERSION
-from unified_planning.engines.compilers.utils import (
-    get_fresh_name,
-    replace_action, updated_minimize_action_costs,
-)
+from unified_planning.engines.compilers.utils import get_fresh_name, replace_action, updated_minimize_action_costs
 from typing import Dict, Optional, Union, List
 from functools import partial
 from unified_planning.shortcuts import BoolType, EMPTY_SET, Or, Not, And, TRUE, Iff, Equals, FALSE, IntType
 
 
-class SetsRemover(engines.engine.Engine, CompilerMixin):
+class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
     """
     Compiler that transforms set fluents into Boolean-indexed fluents.
     Encoding:
@@ -48,7 +41,7 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.SETS_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.SET_FLUENTS_REMOVING)
         self._fluent_mapping = {}
         # Maps original set fluent names to their encoded Boolean fluents
         self._cardinality_registry: Dict[str, FNode] = {}
@@ -82,7 +75,6 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_conditions_kind("EXISTENTIAL_CONDITIONS")
         supported_kind.set_conditions_kind("UNIVERSAL_CONDITIONS")
         supported_kind.set_conditions_kind("COUNTING")
-        supported_kind.set_conditions_kind("MEMBERING")
         supported_kind.set_effects_kind("CONDITIONAL_EFFECTS")
         supported_kind.set_effects_kind("INCREASE_EFFECTS")
         supported_kind.set_effects_kind("DECREASE_EFFECTS")
@@ -124,11 +116,11 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= SetsRemover.supported_kind()
+        return problem_kind <= SetFluentsRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.SETS_REMOVING
+        return compilation_kind == CompilationKind.SET_FLUENTS_REMOVING
 
     @staticmethod
     def resulting_problem_kind(
@@ -136,7 +128,6 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
     ) -> ProblemKind:
         new_kind = problem_kind.clone()
         new_kind.unset_fluents_type("SET_FLUENTS")
-        new_kind.set_fluents_type("ARRAY_FLUENTS")
         return new_kind
 
     # ==================== FLUENT TRANSFORMATION ====================
@@ -694,7 +685,7 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
                 new_effects.append(Effect(new_fluent_expr, True, new_condition, effect.kind, effect.forall))
         return new_effects
 
-    def _transform_difference_effect(self, new_problem: Problem, new_action: Action, effect: Effect):
+    def _transform_difference_effect(self, new_problem: Problem, new_action: InstantaneousAction, effect: Effect):
         """
         Transform: result_set := set1 \ set2
         Into: for each object o: result_set(o) := set1(o) & ¬set2(o)
@@ -813,7 +804,7 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
         return combinations
 
     def _add_card_effect_to_action(
-            self, new_problem, action: Action, card: FNode, old_value: FNode, new_effects: List[Effect], equality_conditions: List[FNode] = True
+            self, new_problem, action: InstantaneousAction, card: FNode, old_value: FNode, new_effects: List[Effect], equality_conditions: List[FNode] = True
     ):
         """Add conditional effects to maintain cardinality helper fluents."""
         card_expr = self._cardinality_registry[card.fluent().name]
@@ -852,7 +843,7 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
                         new_condition = And(equality).simplify()
                         action.add_effect(card, constant_len, new_condition)
 
-                    return
+                return
 
         elif old_value.is_set_add():
             if len(new_effects) == 1:
@@ -908,7 +899,7 @@ class SetsRemover(engines.engine.Engine, CompilerMixin):
 
         raise NotImplementedError(f"Not implemented yet")
 
-    def _generate_card_effects(self, old_problem: Problem, new_problem: Problem, action: Action) -> Action:
+    def _generate_card_effects(self, old_problem: Problem, new_problem: Problem, action: InstantaneousAction) -> InstantaneousAction:
         """
         Generate effects for cardinality fluents based on action effects.
         For each cardinality fluent tracking expression E:

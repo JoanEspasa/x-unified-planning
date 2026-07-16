@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the count int remover class."""
+"""This module defines the count to int remover class."""
 import unified_planning.engines as engines
 from itertools import product
 from unified_planning.engines.mixins.compiler import CompilationKind, CompilerMixin
 from unified_planning.engines.results import CompilerResult
 from unified_planning.exceptions import UPProblemDefinitionError
-from unified_planning.model import Problem, Action, ProblemKind, FNode, AbstractProblem, Fluent, Parameter, Variable
+from unified_planning.model import Problem, Action, ProblemKind, FNode, AbstractProblem, Fluent, Parameter, Variable, \
+    InstantaneousAction
 from unified_planning.model.problem_kind_versioning import LATEST_PROBLEM_KIND_VERSION
 from unified_planning.engines.compilers.utils import replace_action, updated_minimize_action_costs
 from typing import Dict, List, Optional
@@ -26,30 +27,38 @@ from functools import partial
 from unified_planning.shortcuts import Int, Not, And, Equals, IntType
 
 
-class CountIntRemover(engines.engine.Engine, CompilerMixin):
+class CountToIntRemover(engines.engine.Engine, CompilerMixin):
     """
-    Compiler that removes Count expressions by introducing integer helper fluents.
+    Count to integer remover class: this class offers the capability to transform
+    a :class:`~unified_planning.model.Problem` with `Count` expressions into an
+    equivalent `Problem` without them, by introducing an integer helper fluent
+    (with domain 0/1) for each boolean term inside a count, and rewriting the count
+    as the sum of those helper fluents.
 
-    Each boolean term inside a Count is tracked by a dedicated 0/1 integer fluent,
-    and the original count expression is rewritten as a sum of those helper fluents.
+    Each helper fluent is kept consistent with its term through conditional effects
+    added to every action that may change the term's value. For example,
+    `Count((a > b), my_bool) >= 1` becomes `count_0 + count_1 >= 1`, where `count_0`
+    tracks `(a > b)` and `count_1` tracks `my_bool`.
 
-    Example:
-        Count((a > b), my_bool) >= 1
-    Becomes:
-        count_0 + count_1 >= 1
-    Where:
-        count_0 represents (a > b) (0 or 1)
-        count_1 represents my_bool (0 or 1)
+    Count terms must be free of unresolved parameters and quantifier variables:
+    the :class:`~unified_planning.engines.CompilationKind.QUANTIFIERS_REMOVING`
+    compiler should be run beforehand if the problem contains them.
+
+    This capability is offered by the :meth:`~unified_planning.engines.compilers.CountToIntRemover.compile`
+    method, that returns a :class:`~unified_planning.engines.CompilerResult` in which the
+    :meth:`problem <unified_planning.engines.CompilerResult.problem>` field is the compiled `Problem`.
+
+    This `Compiler` supports only the `COUNT_TO_INT_REMOVING` :class:`~unified_planning.engines.CompilationKind`.
     """
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.COUNT_INT_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.COUNT_TO_INT_REMOVING)
         self._count_registry: Dict[str, FNode] = {}
 
     @property
     def name(self):
-        return "crim"
+        return "ctir"
 
     @staticmethod
     def supported_kind() -> ProblemKind:
@@ -60,7 +69,6 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_parameters("BOOL_FLUENT_PARAMETERS")
         supported_kind.set_parameters("BOUNDED_INT_FLUENT_PARAMETERS")
         supported_kind.set_parameters("BOOL_ACTION_PARAMETERS")
-        supported_kind.set_parameters("BOUNDED_INT_ACTION_PARAMETERS")
         supported_kind.set_parameters("UNBOUNDED_INT_ACTION_PARAMETERS")
         supported_kind.set_parameters("REAL_ACTION_PARAMETERS")
         supported_kind.set_numbers("BOUNDED_TYPES")
@@ -69,7 +77,6 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_fluents_type("INT_FLUENTS")
         supported_kind.set_fluents_type("REAL_FLUENTS")
         supported_kind.set_fluents_type("OBJECT_FLUENTS")
-        supported_kind.set_fluents_type("ARRAY_FLUENTS")
         supported_kind.set_conditions_kind("NEGATIVE_CONDITIONS")
         supported_kind.set_conditions_kind("DISJUNCTIVE_CONDITIONS")
         supported_kind.set_conditions_kind("EQUALITIES")
@@ -117,11 +124,11 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= CountIntRemover.supported_kind()
+        return problem_kind <= CountToIntRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.COUNT_INT_REMOVING
+        return compilation_kind == CompilationKind.COUNT_TO_INT_REMOVING
 
     @staticmethod
     def resulting_problem_kind(
@@ -134,7 +141,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
 
     # ==================== EXPRESSION EVALUATION ====================
 
-    def _evaluate_expression(
+    def _transform_expression(
             self,
             problem: Problem,
             expression: FNode,
@@ -162,7 +169,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
             return problem.initial_value(expression)
 
         new_args = [
-            self._evaluate_expression(problem, arg, fluent_to_update, new_value, effect_type)
+            self._transform_expression(problem, arg, fluent_to_update, new_value, effect_type)
             for arg in expression.args
         ]
         return em.create_node(expression.node_type, tuple(new_args)).simplify()
@@ -185,7 +192,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
         elif expression.is_variable_exp():
             raise UPProblemDefinitionError(
                 f"The Count expression contains a Variable and cannot be evaluated!\n"
-                f"You could run the Quantifiers Remover Compiler a priori"
+                f"You could run the Quantifiers Remover Compiler a priori."
             )
         for a in expression.args:
             self._check_argument(a)
@@ -207,6 +214,8 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
             return expression
 
         if expression.is_count():
+            for arg in expression.args:
+                self._check_argument(arg)
             sum_args = []
             for arg in expression.args:
                 # Skip trivial cases
@@ -231,7 +240,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
                     # Evaluate initial value
                     if not count_parameters and not count_variables:
                         # Ground case: direct initialization from initial-state evaluation
-                        initial_eval = self._evaluate_expression(problem, arg)
+                        initial_eval = self._transform_expression(problem, arg)
                         assert initial_eval.is_bool_constant(), \
                             f"Count argument initial value must be boolean constant, got: {initial_eval}"
                         initial_value = Int(1) if initial_eval.is_true() else Int(0)
@@ -247,12 +256,14 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
                         instantiations = self._get_param_combinations(problem, count_parameters)
                         for i in instantiations:
                             this_params = []
+                            param_idx = 0
                             for old_p in arg.args:
                                 if old_p.is_parameter_exp():
-                                    this_params.append(*i)
+                                    this_params.append(i[param_idx])
+                                    param_idx += 1
                                 else:
                                     this_params.append(old_p)
-                            initial_eval = self._evaluate_expression(problem, arg.fluent()(*this_params))
+                            initial_eval = self._transform_expression(problem, arg.fluent()(*this_params))
                             initial_value = Int(1) if initial_eval.is_true() else Int(0)
                             problem.set_initial_value(problem.fluent(fluent_name)(*i), initial_value)
 
@@ -272,7 +283,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
     # ==================== EFFECT GENERATION ====================
 
     def _add_count_effect_to_action(
-            self, action: Action, count_fluent: FNode, new_expr: FNode, condition: Optional[FNode]
+            self, action: InstantaneousAction, count_fluent: FNode, new_expr: FNode, condition: Optional[FNode]
     ):
         """Add conditional effects that keep a helper count fluent consistent."""
         if new_expr.is_bool_constant():
@@ -293,15 +304,15 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
                 action.add_effect(count_fluent, 1, new_expr)
                 action.add_effect(count_fluent, 0, Not(new_expr).simplify())
 
-    def _generate_count_effects(self, problem: Problem, action: Action) -> Action:
+    def _generate_count_effects(self, problem: Problem, action: InstantaneousAction) -> InstantaneousAction:
         """
         Generate effects for helper count fluents based on action effects.
         For each registered count term, if an action effect may modify a fluent used in that term,
         synthesize corresponding conditional effects on the helper fluent.
         """
         for count_name, count_expr in self._count_registry.items():
-            # Find which fluents in count_expr are affected by action
             affected_fluents = self._find_affected_fluents(count_expr)
+            # Find which fluents in count_expr are affected by action
             # Process each effect
             for effect in action.effects:
                 # Check if this effect can affect any tracked fluent
@@ -329,7 +340,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
                     # This effect can modify the tracked fluent. Compute updated expression value
                     effect_type = 'increase' if effect.is_increase() else 'decrease' if effect.is_decrease() else None
 
-                    new_expr = self._evaluate_expression(problem, count_expr, tracked_fluent, effect.value, effect_type)
+                    new_expr = self._transform_expression(problem, count_expr, tracked_fluent, effect.value, effect_type)
                     count_parameters = [Parameter(str(a), a.type) for a in count_expr.args if a.is_parameter_exp()]
 
                     # Combine effect condition with argument-matching equalities

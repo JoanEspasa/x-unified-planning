@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""This module defines the count remover class."""
+"""This module defines the count to bool remover class."""
 import itertools
-import unified_planning as up
 import unified_planning.engines as engines
+from unified_planning.model import InstantaneousAction
 from unified_planning.exceptions import UPValueError
-from unified_planning.model.walkers import simplifier
 from unified_planning.engines.mixins.compiler import CompilationKind, CompilerMixin
 from unified_planning.engines.results import CompilerResult
 from unified_planning.model import Problem, Action, ProblemKind, OperatorKind, FNode, Effect
@@ -27,22 +26,30 @@ from typing import Dict, Optional, Tuple, List
 from functools import partial
 from unified_planning.shortcuts import Not, And, Or, FALSE, TRUE
 
-class CountRemover(engines.engine.Engine, CompilerMixin):
+class CountToBoolRemover(engines.engine.Engine, CompilerMixin):
     """
-    Compiler that removes count expressions by expanding them into equivalent boolean formulas.
-    Supported comparisons:
-    - Count(args) op constant
-    - constant op Count(args)
-    - Count(args1) op Count(args2)
+    Count to boolean remover class: this class offers the capability to transform
+    a :class:`~unified_planning.model.Problem` with `Count` expressions into an
+    equivalent `Problem` without them, by expanding each count comparison into an
+    equivalent boolean formula over the count's arguments.
+
+    For example, `Count(a, b, c) <= 2` is rewritten as a formula stating that at
+    most two of `a, b, c` hold.
+
+    This capability is offered by the :meth:`~unified_planning.engines.compilers.CountToBoolRemover.compile`
+    method, that returns a :class:`~unified_planning.engines.CompilerResult` in which the
+    :meth:`problem <unified_planning.engines.CompilerResult.problem>` field is the compiled `Problem`.
+
+    This `Compiler` supports only the `COUNT_TO_BOOL_REMOVING` :class:`~unified_planning.engines.CompilationKind`.
     """
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.COUNT_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.COUNT_TO_BOOL_REMOVING)
 
     @property
     def name(self):
-        return "crm"
+        return "ctbr"
 
     @staticmethod
     def supported_kind() -> ProblemKind:
@@ -53,7 +60,6 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_parameters("BOOL_FLUENT_PARAMETERS")
         supported_kind.set_parameters("BOUNDED_INT_FLUENT_PARAMETERS")
         supported_kind.set_parameters("BOOL_ACTION_PARAMETERS")
-        supported_kind.set_parameters("BOUNDED_INT_ACTION_PARAMETERS")
         supported_kind.set_parameters("UNBOUNDED_INT_ACTION_PARAMETERS")
         supported_kind.set_parameters("REAL_ACTION_PARAMETERS")
         supported_kind.set_numbers("BOUNDED_TYPES")
@@ -62,7 +68,6 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_fluents_type("INT_FLUENTS")
         supported_kind.set_fluents_type("REAL_FLUENTS")
         supported_kind.set_fluents_type("OBJECT_FLUENTS")
-        supported_kind.set_fluents_type("ARRAY_FLUENTS")
         supported_kind.set_conditions_kind("NEGATIVE_CONDITIONS")
         supported_kind.set_conditions_kind("DISJUNCTIVE_CONDITIONS")
         supported_kind.set_conditions_kind("EQUALITIES")
@@ -110,11 +115,11 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= CountRemover.supported_kind()
+        return problem_kind <= CountToBoolRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.COUNT_REMOVING
+        return compilation_kind == CompilationKind.COUNT_TO_BOOL_REMOVING
 
     @staticmethod
     def resulting_problem_kind(
@@ -153,9 +158,10 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
         """
         Transform expressions recursively, replacing count expressions with boolean formulas.
         """
-        if node.is_fluent_exp() or node.is_parameter_exp() or node.is_constant():
+        if node.is_fluent_exp() or node.is_parameter_exp() or node.is_variable_exp() or node.is_constant():
             return node
 
+        # UP normalizes all comparisons to LT, LE and EQUALS (GT/GE are rewritten)
         comparison_ops = {OperatorKind.LT, OperatorKind.LE, OperatorKind.EQUALS}
         if node.node_type in comparison_ops and any(arg.is_count() for arg in node.args):
             return self._transform_count_comparison(node)
@@ -164,7 +170,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
         new_args = [self._transform_expression(new_problem, arg) for arg in node.args]
         if node.is_exists() or node.is_forall():
             return em.create_node(node.node_type, tuple(new_args), tuple(node.variables()))
-        return em.create_node(node.node_type, tuple(new_args))
+        return em.create_node(node.node_type, tuple(new_args)).simplify()
 
     # ==================== COUNT VS CONSTANT ====================
 
@@ -183,7 +189,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
             combinations.append(And(*literals))
         return combinations
 
-    def _exactly_k_true_formula(self, arguments: List[FNode], min_true: int, max_true: int) -> FNode:
+    def _between_k_true_formula(self, arguments: List[FNode], min_true: int, max_true: int) -> FNode:
         """
         Generate formula: "between min_true and max_true arguments are true".
         Returns: Or of all combinations where exactly k arguments are true, for k in [min_true, max_true],
@@ -246,7 +252,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
             min_true, max_true = 0, min(value - 1, n)
         else:
             raise UPValueError(f"Operator {op} not supported (should be LT/LE/EQUALS)")
-        return self._exactly_k_true_formula(arguments, min_true, max_true)
+        return self._between_k_true_formula(arguments, min_true, max_true)
 
     def _expand_constant_vs_count(self, value: int, count_node: FNode, op: OperatorKind) -> FNode:
         """
@@ -268,7 +274,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
             raise UPValueError(f"Operator {op} not supported (should be LT/LE/EQUALS)")
 
         # Generate boolean formula
-        return self._exactly_k_true_formula(arguments, min_true, max_true)
+        return self._between_k_true_formula(arguments, min_true, max_true)
 
     # ==================== COUNT VS COUNT ====================
 
@@ -300,14 +306,14 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
             k2_min = min(k2_list)
             k2_max = max(k2_list)
 
-            formula1 = self._exactly_k_true_formula(args1, k1, k1)  # exactly k1
+            formula1 = self._between_k_true_formula(args1, k1, k1)  # exactly k1
 
             # Check if k2_list is a continuous range
             if k2_list == list(range(k2_min, k2_max + 1)):
-                formula2 = self._exactly_k_true_formula(args2, k2_min, k2_max)
+                formula2 = self._between_k_true_formula(args2, k2_min, k2_max)
             else:
                 # Non-continuous - enumerate each k2 separately
-                k2_clauses = [self._exactly_k_true_formula(args2, k2, k2) for k2 in k2_list]
+                k2_clauses = [self._between_k_true_formula(args2, k2, k2) for k2 in k2_list]
                 formula2 = Or(*k2_clauses) if len(k2_clauses) > 1 else k2_clauses[0]
 
             clauses.append(And(formula1, formula2))
@@ -334,7 +340,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
 
     # ==================== ACTION TRANSFORMATION ====================
 
-    def _transform_action(self, new_problem: Problem, action: Action) -> Action:
+    def _transform_action(self, new_problem: Problem, action: InstantaneousAction) -> InstantaneousAction:
         """Transform an action by replacing all Count expressions in preconditions and effects."""
         new_action = action.clone()
         new_action.name = get_fresh_name(new_problem, action.name)
@@ -350,7 +356,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
 
         return new_action
 
-    def _transform_effect(self, new_problem: Problem, new_action: Action, effect: Effect):
+    def _transform_effect(self, new_problem: Problem, new_action: InstantaneousAction, effect: Effect):
         """Transform a single effect by replacing count expressions in value and condition."""
         new_fluent = self._transform_expression(new_problem, effect.fluent)
         new_value = self._transform_expression(new_problem, effect.value)

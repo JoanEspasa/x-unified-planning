@@ -101,13 +101,13 @@ DEFAULT_ENGINES = {
         "unified_planning.engines.compilers.quantifiers_remover",
         "QuantifiersRemover",
     ),
-    "up_count_remover": (
-        "unified_planning.engines.compilers.count_remover",
-        "CountRemover",
+    "up_count_to_bool_remover": (
+        "unified_planning.engines.compilers.count_to_bool_remover",
+        "CountToBoolRemover",
     ),
-    "up_count_int_remover": (
-        "unified_planning.engines.compilers.count_int_remover",
-        "CountIntRemover",
+    "up_count_to_int_remover": (
+        "unified_planning.engines.compilers.count_to_int_remover",
+        "CountToIntRemover",
     ),
     "up_array_fluents_remover": (
         "unified_planning.engines.compilers.array_fluents_remover",
@@ -117,9 +117,9 @@ DEFAULT_ENGINES = {
         "unified_planning.engines.compilers.logarithmic_remover",
         "LogarithmicRemover",
     ),
-    "up_sets_remover": (
-        "unified_planning.engines.compilers.sets_remover",
-        "SetsRemover",
+    "up_set_fluents_remover": (
+        "unified_planning.engines.compilers.set_fluents_remover",
+        "SetFluentsRemover",
     ),
     "up_conditions_to_predicates_simplifier": (
         "unified_planning.engines.compilers.conditions_to_predicates_simplifier",
@@ -129,9 +129,9 @@ DEFAULT_ENGINES = {
         "unified_planning.engines.compilers.int_parameters_and_variables_remover",
         "IntParametersAndVariablesRemover",
     ),
-    "up_integers_remover": (
-        "unified_planning.engines.compilers.integers_remover",
-        "IntegersRemover",
+    "up_integer_fluents_remover": (
+        "unified_planning.engines.compilers.integer_fluents_remover",
+        "IntegerFluentsRemover",
     ),
     "up_int_arrays_bits_remover": (
         "unified_planning.engines.compilers.int_arrays_bits_remover",
@@ -206,14 +206,14 @@ DEFAULT_ENGINES_PREFERENCE_LIST = [
     "up_ma_conditional_effects_remover",
     "up_negative_conditions_remover",
     "up_quantifiers_remover",
-    "up_count_remover",
-    "up_count_int_remover",
+    "up_count_to_bool_remover",
+    "up_count_to_int_remover",
     "up_array_fluents_remover",
     "up_logarithmic_remover",
-    "up_sets_remover",
+    "up_set_fluents_remover",
     "up_conditions_to_predicates_simplifier",
     "up_int_parameters_and_variables_remover",
-    "up_integers_remover",
+    "up_integer_fluents_remover",
     "up_int_arrays_bits_remover",
     "up_state_invariants_remover",
     "up_usertype_fluents_remover",

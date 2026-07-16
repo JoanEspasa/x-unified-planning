@@ -154,7 +154,8 @@ class FluentsSetMixin:
                 "The default initial value must be a single element, not a list: it is applied to " \
                 "every position of the array, so it must match the type of the deepest elements."
             if fluent.type.is_set_type():
-                assert default_initial_value == self.environment.expression_manager.EMPTY_SET() or isinstance(default_initial_value, (set, Set)), f"The default initial value must be a set type."
+                assert default_initial_value == self.environment.expression_manager.EMPTY_SET() or \
+                       isinstance(default_initial_value, (set, Set)), f"The default initial value must be a set type."
             (v_exp,) = self.environment.expression_manager.auto_promote(
                 default_initial_value
             )

@@ -1073,8 +1073,6 @@ class _KindFactory:
             self.kind.set_conditions_kind("INTERPRETED_FUNCTIONS_IN_CONDITIONS")
         if OperatorKind.COUNT in ops:
             self.kind.set_conditions_kind("COUNTING")
-        if OperatorKind.SET_MEMBER in ops:
-            self.kind.set_conditions_kind("MEMBERING")
         is_linear, _, _ = self.linear_checker.get_fluents(exp)
         if not is_linear:
             self.kind.unset_problem_type("SIMPLE_NUMERIC_PLANNING")

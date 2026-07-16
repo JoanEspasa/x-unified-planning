@@ -7,7 +7,7 @@ Example:
   python run.py --domain plotting --compilation uti --solving fast-downward
 """
 from typing import Dict, Optional
-from unified_planning.model import Action, Expression, Object, IntVariable
+from unified_planning.model import Action, Expression, Object, IntVariable, Variable
 from unified_planning.shortcuts import (
     ArrayType,
     Equals,
