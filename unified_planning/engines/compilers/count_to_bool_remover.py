@@ -27,7 +27,7 @@ from typing import Dict, Optional, Tuple, List
 from functools import partial
 from unified_planning.shortcuts import Not, And, Or, FALSE, TRUE
 
-class CountRemover(engines.engine.Engine, CompilerMixin):
+class CountToBoolRemover(engines.engine.Engine, CompilerMixin):
     """
     Compiler that removes count expressions by expanding them into equivalent boolean formulas.
     Supported comparisons:
@@ -38,7 +38,7 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.COUNT_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.COUNT_TO_BOOL_REMOVING)
 
     @property
     def name(self):
@@ -110,11 +110,11 @@ class CountRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= CountRemover.supported_kind()
+        return problem_kind <= CountToBoolRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.COUNT_REMOVING
+        return compilation_kind == CompilationKind.COUNT_TO_BOOL_REMOVING
 
     @staticmethod
     def resulting_problem_kind(

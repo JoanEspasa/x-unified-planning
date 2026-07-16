@@ -26,7 +26,7 @@ from functools import partial
 from unified_planning.shortcuts import Int, Not, And, Equals, IntType
 
 
-class CountIntRemover(engines.engine.Engine, CompilerMixin):
+class CountToIntRemover(engines.engine.Engine, CompilerMixin):
     """
     Compiler that removes Count expressions by introducing integer helper fluents.
 
@@ -44,7 +44,7 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
 
     def __init__(self):
         engines.engine.Engine.__init__(self)
-        CompilerMixin.__init__(self, CompilationKind.COUNT_INT_REMOVING)
+        CompilerMixin.__init__(self, CompilationKind.COUNT_TO_INT_REMOVING)
         self._count_registry: Dict[str, FNode] = {}
 
     @property
@@ -117,11 +117,11 @@ class CountIntRemover(engines.engine.Engine, CompilerMixin):
 
     @staticmethod
     def supports(problem_kind):
-        return problem_kind <= CountIntRemover.supported_kind()
+        return problem_kind <= CountToIntRemover.supported_kind()
 
     @staticmethod
     def supports_compilation(compilation_kind: CompilationKind) -> bool:
-        return compilation_kind == CompilationKind.COUNT_INT_REMOVING
+        return compilation_kind == CompilationKind.COUNT_TO_INT_REMOVING
 
     @staticmethod
     def resulting_problem_kind(
