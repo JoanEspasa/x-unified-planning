@@ -103,20 +103,20 @@ advanced constructs into a representation compatible for a target planner.
 | Abbreviation | Name                                  | Feature Removed                                | Transforms Into                                                                                                              |
 |--------------|---------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `IPAVR`      | INT_PARAMETERS_AND_VARIABLES_REMOVING | Bounded Integer parameters and Int Variables   | Grounded instantiated actions and expanded quantifiers (forall/exists) over instantiated ranges  |
-| `AR`         | ARRAYS_REMOVING                       | (Multi)Array fluents of an *element_type*      | An *element_type* fluent + (multi)position objects (p0, p1, p2, ...) as parameters                                           |
+| `AFR`        | ARRAY_FLUENTS_REMOVING                | (Multi)Array fluents of an *element_type*      | An *element_type* fluent + (multi)position objects (p0, p1, p2, ...) as parameters                                           |
 | `ALR`        | ARRAYS_LOGARITHMIC_REMOVING           | Bounded integer array fluents                  | Boolean fluents representing integer bits (logarithmic encoding)                                                             |
 | `IFR`        | INTEGER_FLUENTS_REMOVING              | Bounded integer fluents                        | Boolean fluents + number objects (n0, n1, n2, ...) as parameters                                                             |
 | `CTBR`       | COUNT_TO_BOOL_REMOVING                | Count expressions                              | Expanded boolean formulas (e.g., Count >= 2 becomes disjunctions)                                                            |
 | `CTIR`       | COUNT_TO_INT_REMOVING                 | Count expressions                              | Integer fluents + sum expressions (each condition becomes a 0/1 fluent)                                                      |
-| `SR`         | SETS_REMOVING                         | Set fluents                                    | Boolean array fluents (membership represented as boolean)                                                                    |
+| `SFR`        | SET_FLUENTS_REMOVING                  | Set fluents                                    | Boolean array fluents (membership represented as boolean)                                                                    |
 
 ### Compilation Strategies
 As described in the paper, we can chain these compilers to produce different PDDL models 
 (e.g., `uti` = IPAR $\rightarrow$ AR $\rightarrow$ IR). 
 The general rule of order is:
 1. Remove **integer parameters** in actions (`IPAR`).
-2. Remove **high-level structures** (arrays `AR`/`ALR`, sets `SR`).
-3. Remove **remaining numeric features** (integers `IR`, counts `CR`/`CIR`).
+2. Remove **high-level structures** (arrays `AFR`/`ALR`, sets `SFR`).
+3. Remove **remaining numeric features** (integers `IR`, counts `CTBR`/`CTIR`).
 
 ---
 

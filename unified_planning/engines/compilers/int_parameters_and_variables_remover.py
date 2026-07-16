@@ -79,7 +79,6 @@ class IntParametersAndVariablesRemover(engines.engine.Engine, CompilerMixin):
         supported_kind.set_conditions_kind("EXISTENTIAL_CONDITIONS")
         supported_kind.set_conditions_kind("UNIVERSAL_CONDITIONS")
         supported_kind.set_conditions_kind("COUNTING")
-        supported_kind.set_conditions_kind("MEMBERING")
         supported_kind.set_conditions_kind("INT_VARIABLES")
         supported_kind.set_effects_kind("CONDITIONAL_EFFECTS")
         supported_kind.set_effects_kind("INCREASE_EFFECTS")

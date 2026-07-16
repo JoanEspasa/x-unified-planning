@@ -116,9 +116,11 @@ class ExpressionManager(object):
         both as a list of arguments or as a tuple of arguments:
         e.g. And([a,b,c]) and And(a,b,c)
         are both valid, and they are converted into (a,b,c)
+        Sets are treated as single values (set constants), not expanded, since a
+        set is a value rather than an argument list.
         """
         for a in args:
-            if isinstance(a, Iterable) and not isinstance(a, str):
+            if isinstance(a, Iterable) and not isinstance(a, (str, set, frozenset)):
                 for p in a:
                     yield p
             else:
@@ -573,10 +575,10 @@ class ExpressionManager(object):
         :param right: The ``right`` member of the ``Iff expression``.
         :return: The created ``Iff`` expression.
         """
-        if type(left) is list:
-            left = [left]
-        if type(right) is list:
-            right = [right]
+        if isinstance(left, list):
+            left = self.Array(left)
+        if isinstance(right, list):
+            right = self.Array(right)
         left, right = self.auto_promote(left, right)
         return self.create_node(node_type=OperatorKind.IFF, args=(left, right))
 
@@ -1056,10 +1058,10 @@ class ExpressionManager(object):
         :param right: The right side of the ``==``.
         :return: The created ``Equals`` expression.
         """
-        if type(left) is list:
-            left = [left]
-        if type(right) is list:
-            right = [right]
+        if isinstance(left, list):
+            left = self.Array(left)
+        if isinstance(right, list):
+            right = self.Array(right)
         left, right = self.auto_promote(left, right)
         return self.create_node(node_type=OperatorKind.EQUALS, args=(left, right))
 
@@ -1077,7 +1079,6 @@ class ExpressionManager(object):
 
         left, right = self.auto_promote(left, right)
         if left.type.is_bool_type() and right.type.is_bool_type():
-
             return self.create_node(node_type=OperatorKind.IFF, args=(left, right))
         else:
             return self.create_node(node_type=OperatorKind.EQUALS, args=(left, right))

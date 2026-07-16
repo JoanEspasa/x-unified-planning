@@ -72,7 +72,6 @@ FEATURES = {
         "INTERPRETED_FUNCTIONS_IN_CONDITIONS",
         "COUNTING",
         "INT_VARIABLES",
-        "MEMBERING"
     ],
     "EFFECTS_KIND": [
         "CONDITIONAL_EFFECTS",

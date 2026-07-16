@@ -25,6 +25,7 @@ from .base import Domain
 from .block_grouping import DOMAIN as block_grouping
 from .counters import DOMAIN as counters
 from .delivery import DOMAIN as delivery
+from .dump_trucks import DOMAIN as dump_trucks
 from .expedition import DOMAIN as expedition
 from .farmland import DOMAIN as farmland
 from .hydro_power import DOMAIN as hydro_power
@@ -48,6 +49,7 @@ DOMAINS: dict[str, Domain] = {
     "block_grouping": block_grouping,
     "counters": counters,
     "delivery": delivery,
+    "dump_trucks": dump_trucks,
     "expedition": expedition,
     "farmland": farmland,
     "hydro_power": hydro_power,

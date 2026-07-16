@@ -38,7 +38,7 @@ from unified_planning.shortcuts import (
 )
 
 # Each key maps a short alias to an ordered list of compilation steps.
-# Pipelines marked "numeric" keep integer fluents (no INTEGERS_REMOVING).
+# Pipelines marked "numeric" keep integer fluents.
 COMPILATION_PIPELINES = {
     "up": [
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
@@ -74,7 +74,7 @@ COMPILATION_PIPELINES = {
         CompilationKind.INT_PARAMETERS_AND_VARIABLES_REMOVING,
         CompilationKind.ARRAY_FLUENTS_REMOVING,
         CompilationKind.COUNT_TO_INT_REMOVING,
-        CompilationKind.INTEGER_FLUENTS_REMOVING,
+        #CompilationKind.INTEGER_FLUENTS_REMOVING,
         CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "cin": [  # numeric
@@ -83,18 +83,18 @@ COMPILATION_PIPELINES = {
         CompilationKind.COUNT_TO_INT_REMOVING,
     ],
     "sc": [
-        CompilationKind.SETS_REMOVING,
-        CompilationKind.COUNT_TO_BOOL_REMOVING,
-        # CompilationKind.USERTYPE_FLUENTS_REMOVING,
+        CompilationKind.SET_FLUENTS_REMOVING,
+        #CompilationKind.COUNT_TO_BOOL_REMOVING,
+        CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "sci": [
-        CompilationKind.SETS_REMOVING,
-        CompilationKind.COUNT_TO_INT_REMOVING,
-        CompilationKind.INTEGER_FLUENTS_REMOVING,
+        CompilationKind.SET_FLUENTS_REMOVING,
+        #CompilationKind.COUNT_TO_INT_REMOVING,
+        #CompilationKind.INTEGER_FLUENTS_REMOVING,
         # CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
     "scin": [  # numeric
-        CompilationKind.SETS_REMOVING,
+        CompilationKind.SET_FLUENTS_REMOVING,
         CompilationKind.COUNT_TO_INT_REMOVING,
         # CompilationKind.USERTYPE_FLUENTS_REMOVING,
     ],
