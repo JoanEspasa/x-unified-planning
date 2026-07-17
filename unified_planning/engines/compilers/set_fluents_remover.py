@@ -314,7 +314,7 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
                         initial_value = len(
                             old_problem.explicit_initial_values[old_fluent(*p)].constant_value())
                         new_problem.set_initial_value(new_fluent(*p), initial_value)
-                    except:
+                    except KeyError:
                         pass
 
                 return new_fluent(*set_expr.args)
@@ -373,7 +373,7 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
                 for p in parameter_values:
                     try:
                         initial_value1 = old_problem.explicit_initial_values[old_fluent1(*p)].constant_value()
-                        initial_value2 = old_problem.explicit_initial_values[old_fluent1(*p)].constant_value()
+                        initial_value2 = old_problem.explicit_initial_values[old_fluent2(*p)].constant_value()
                         new_problem.set_initial_value(new_fluent(*p), len(initial_value1 | initial_value2))
                     except:
                         pass
@@ -654,7 +654,7 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
 
     def _transform_difference_effect(self, new_problem: Problem, new_action: InstantaneousAction, effect: Effect):
         """
-        Transform: result_set := set1 \ set2
+        Transform: result_set := set1\set2
         Into: for each object o: result_set(o) := set1(o) & ¬set2(o)
         """
         set1, set2 = effect.value.args
