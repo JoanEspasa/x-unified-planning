@@ -188,39 +188,6 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
             params = [element] + list(base_params)
             new_problem.set_initial_value(new_fluent(*params), True)
 
-    def _add_set_fluent_as_boolean_array(self, problem, new_problem, fluent, default_value):
-        """Helper to encode set fluents as Boolean-indexed fluents."""
-        # Create new parameter for set elements
-        elements_type = fluent.type.elements_type
-        element_param = model.Parameter(str(elements_type)[0].lower(), elements_type)
-
-        # Build new signature with element parameter first
-        new_signature = [element_param] + list(fluent.signature)
-
-        # Create and add the new boolean fluent
-        new_fluent = model.Fluent(
-            name=fluent.name,
-            typename=BoolType(),
-            _signature=new_signature,
-            environment=fluent.environment
-        )
-        new_problem.add_fluent(new_fluent, default_initial_value=False)
-
-        # Get all parameter combinations
-        parameter_combinations = self._get_param_combinations(problem, fluent.signature)
-
-        # Validate default value
-        if default_value is not None:
-            assert default_value.type.is_set_type(), "Default value must be a set type"
-
-        # Set initial values for each combination
-        for combi in parameter_combinations:
-            initial_value = problem.explicit_initial_values.get(fluent(*combi))
-            if initial_value:
-                self._set_boolean_values(new_problem, new_fluent, combi, initial_value.constant_value())
-            elif default_value is not None and default_value != EMPTY_SET():
-                self._set_boolean_values(new_problem, new_fluent, combi, default_value.constant_value())
-
     def _add_regular_fluent(self, problem: Problem, new_problem: Problem, fluent: Fluent, default_value):
         """Add non-set fluent unchanged."""
         new_problem.add_fluent(fluent, default_initial_value=default_value)
@@ -347,7 +314,7 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
                         initial_value = len(
                             old_problem.explicit_initial_values[old_fluent(*p)].constant_value())
                         new_problem.set_initial_value(new_fluent(*p), initial_value)
-                    except:
+                    except KeyError:
                         pass
 
                 return new_fluent(*set_expr.args)
@@ -406,7 +373,7 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
                 for p in parameter_values:
                     try:
                         initial_value1 = old_problem.explicit_initial_values[old_fluent1(*p)].constant_value()
-                        initial_value2 = old_problem.explicit_initial_values[old_fluent1(*p)].constant_value()
+                        initial_value2 = old_problem.explicit_initial_values[old_fluent2(*p)].constant_value()
                         new_problem.set_initial_value(new_fluent(*p), len(initial_value1 | initial_value2))
                     except:
                         pass
@@ -687,7 +654,7 @@ class SetFluentsRemover(engines.engine.Engine, CompilerMixin):
 
     def _transform_difference_effect(self, new_problem: Problem, new_action: InstantaneousAction, effect: Effect):
         """
-        Transform: result_set := set1 \ set2
+        Transform: result_set := set1\set2
         Into: for each object o: result_set(o) := set1(o) & ¬set2(o)
         """
         set1, set2 = effect.value.args
